@@ -1,4 +1,4 @@
-name: Deploy Sphinx documentation to Pages  # https://sphinx.silverrainz.me/pages/
+name: Deploy Sphinx documentation to GitHub Pages  # https://sphinx.silverrainz.me/pages/
 
 on:
   push:
