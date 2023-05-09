@@ -370,20 +370,23 @@ def get_unit_from_str(unit_str: str, primary_physical_type: str = None, context=
         ureg.enable_contexts(context)
 
     if len(unit_str) == 0:
-        return ureg.Unit(default_units[primary_physical_type]['main'])
+        rv = ureg.Unit(default_units[primary_physical_type]['main'])
     elif unit_str in ureg_unit_prefixes:
         new_unit_str = unit_str + default_units[primary_physical_type]['core']
         if is_unit_valid(new_unit_str):
-            return ureg.Unit(new_unit_str)
+            rv = ureg.Unit(new_unit_str)
         else:
             raise InvalidDerivedUnitStringError(unit_str, primary_physical_type, default_units)
     elif is_unit_valid(unit_str):
         unit = ureg.Unit(unit_str)
         if not unit.is_compatible_with(default_units[primary_physical_type]['main']):
             warnings.warn(IncompatibleUnitWarning(unit_str, primary_physical_type, context, default_units))
-        return unit
+        rv = unit
     else:
         raise UnsupportedUnitError(unit_str, primary_physical_type, context)
+
+    ureg.disable_contexts()
+    return rv
 
 
 def parse_string_with_units(s, primary_physical_type, context=None):

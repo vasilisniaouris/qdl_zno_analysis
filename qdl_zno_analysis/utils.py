@@ -11,6 +11,8 @@ import numpy as np
 import pint
 
 from qdl_zno_analysis import ureg, Qty
+from qdl_zno_analysis.constants import default_units
+from qdl_zno_analysis.typevars import EnhancedNumeric
 
 
 def is_unit_valid(unit_str: str) -> bool:
@@ -91,6 +93,60 @@ def get_class_arg_type_hints(cls, arg_name: str) -> Type | None:
         return arg_type
     except Exception:
         return None
+
+
+def to_qty_force_units(value: EnhancedNumeric | np.ndarray[int | float] | list[int | float],
+                       physical_type: str = "dimensionless", context=None, **context_kwargs) -> Qty:
+
+    if value is None:
+        return None
+
+    if context is not None:
+        ureg.enable_contexts(context, **context_kwargs)
+
+    units: str = default_units[physical_type]['main']
+    if isinstance(value, int | float | List | np.ndarray):
+        rv = Qty(value, units)
+    else:
+        rv = value.to(units)
+
+    ureg.disable_contexts()
+    return rv
+
+
+def to_qty(value: EnhancedNumeric | np.ndarray[int | float] | list[int | float],
+           physical_type: str = "dimensionless") -> Qty:
+    if isinstance(value, Qty):
+        return value
+    else:
+        return to_qty_force_units(value, physical_type)
+
+
+def varname_to_title_string(varname: str, ignore: str = '') -> str:
+    """
+    Convert a variable name to a title-type string.
+
+    Parameters
+    ----------
+    varname : str
+        The variable name to convert.
+    ignore : str, optional
+        A string containing characters to ignore during the conversion, by default ''.
+
+    Returns
+    -------
+    str
+        The converted variable name.
+
+    Examples
+    --------
+    >>> varname_to_title_string('green_onions.rule')
+    'Green Onions Rule'
+
+    >>> varname_to_title_string('potatoes!', '!')
+    'Potatoes!'
+    """
+    return re.sub(r'[^a-zA-Z0-9' + ignore + r']+|^(?=\d)', ' ', varname).title()
 
 
 def str_to_valid_varname(string: str, ignore: str = '') -> str:
@@ -222,3 +278,16 @@ def find_changing_values_in_list_of_dict(list_of_dicts: List[Dict], reverse_resu
 
     return result_dict
 
+
+def interpolated_integration(start, end, x_data, y_data):
+    x_interp = x_data[(x_data > start) & (x_data < end)]
+    x_interp = np.append(start, x_interp)
+    x_interp = np.append(x_interp, end)
+    y_interp = np.interp(x_interp, x_data, y_data)
+    return np.trapz(y_interp, x_interp)
+
+
+def find_nearest(array: Qty | np.ndarray | list, value: EnhancedNumeric):
+    array = np.asarray(array) if not isinstance(array, Qty) else array
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]

@@ -312,6 +312,7 @@ class ScanInfo(Info):
                 ureg.enable_contexts(context, **context_kwargs)
             start = self.start.to(units) if self.start is not None else None
             stop = self.stop.to(units) if self.stop is not None else None
+            ureg.disable_contexts()
 
         step_no = self.step_no
         step = np.abs(Qty((stop - start) / (step_no - 1)).to(units))
@@ -386,7 +387,7 @@ class SourceInfo(Info):
 
     name: str | None = None
     """ The name of the source. """
-    wfe: Qty | ScanInfo | None = None
+    wfe: Qty | ScanInfo | None = Qty(np.nan, 'nm')
     """ The wavelength/frequency/energy of the source. """
 
     wavelength_vacuum: Qty | None = field(init=False)
