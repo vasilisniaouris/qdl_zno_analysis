@@ -1,13 +1,12 @@
 """
-This module contains a classes that extracts information from filenames.
+This module contains classes that extract information from filenames.
 The base class `Info` is used as a template for child classes that extract specific information from filenames.
 The `FilenameInfo` class is the only class that the user may interact with, since it interfaces
 with the `FilenameManager` class.
 """
-import dataclasses
+
 import inspect
-from dataclasses import dataclass, field, fields
-from operator import attrgetter
+from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, ClassVar
 
 import numpy as np
@@ -17,7 +16,7 @@ from qdl_zno_analysis.constants import default_units, get_n_air
 from qdl_zno_analysis.errors import InfoSubclassArgumentNumberError
 from qdl_zno_analysis.filename_utils.filename_parsing import parse_string_with_units, parse_filename
 from qdl_zno_analysis.typevars import AnyString
-from qdl_zno_analysis.utils import normalize_dict, str_to_valid_varname, get_class_arg_type_hints
+from qdl_zno_analysis.utils import str_to_valid_varname, get_class_arg_type_hints, Dataclass
 
 
 def _value_str_to_attr_physical_type(arg, value_str, attr_physical_type_dict):
@@ -37,7 +36,7 @@ def _value_str_to_attr_physical_type(arg, value_str, attr_physical_type_dict):
 
 
 @dataclass(repr=False)
-class Info:
+class Info(Dataclass):
     """
     A base class that defines a few classmethods and class variables that can be used in child classes for
     extracting information from filename strings.
@@ -103,40 +102,6 @@ class Info:
                             attr, value, attr_physical_type_dict)
 
         return cls(**converted_dict)
-
-    def to_dict(self):
-        """
-        Returns a dictionary representation of the `Info` object.
-        Utilizes the `dataclasses._asdict_inner` method to cover inner values to dict as well.
-        """
-        result = []
-        for f in fields(self):
-            if '_attr_physical_type_dict' not in f.name:
-                value = getattr(self, f.name)
-                value = value.to_dict() if isinstance(value, Info) else dataclasses._asdict_inner(value, dict)
-                result.append((f.name, value))
-        return dict(result)
-
-    def to_normalized_dict(self, separator='.'):
-        """ Returns a normalized dictionary representation of the `Info` object.
-        The argument `separator` is used to separate keys of nested dictionaries. """
-        return normalize_dict(self.to_dict(), separator=separator)
-
-    def __str__(self):
-        """
-        The string conversion of the `Info` object. It deliberately omits all None values so that the print is
-        not crowded.
-         """
-        # https://stackoverflow.com/questions/72161257/exclude-default-fields-from-python-dataclass-repr
-        not_none_fields = ((f.name, attrgetter(f.name)(self))
-                           for f in fields(self) if attrgetter(f.name)(self) is not None and f.repr)
-
-        not_none_fields_repr = ", ".join(f"{name}={value!r}" for name, value in not_none_fields)
-        return f"{self.__class__.__name__}({not_none_fields_repr})"
-
-    def __repr__(self):
-        return str(self)
-
 
 @dataclass(repr=False)
 class ScanInfo(Info):
