@@ -441,7 +441,7 @@ class SourceInfo(Info):
         return self.frequency
 
     @property
-    def en(self):
+    def eng(self):
         """ Alias for `energy`. """""
         return self.energy
 

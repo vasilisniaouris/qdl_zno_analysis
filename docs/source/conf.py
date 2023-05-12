@@ -74,6 +74,7 @@ autoapi_dirs = [f"../../{_project_metadata['name']}"]
 autoapi_add_toctree_entry = True
 autoapi_python_class_content = 'both'  # both class doc and __init__ doc
 autoapi_member_order = 'groupwise'
+autoapi_keep_files = True
 
 # napoleon extension settings
 # napoleon_google_docstring = True
@@ -93,7 +94,7 @@ autoapi_member_order = 'groupwise'
 
 # -- Options for MyST parser -------------------------------------------------
 
-# myst_heading_anchors = 3
+myst_heading_anchors = 5
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -152,7 +153,7 @@ html_theme_options = {
     "sidebar_hide_name": False,
     "source_repository": _project_metadata['urls']["repository"],
     "source_branch": "main",
-    "source_directory": "docs/",
+    "source_directory": "docs/source/",
  }
 
 # for sphinx specifically

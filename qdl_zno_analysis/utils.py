@@ -317,6 +317,7 @@ def find_changing_values_in_list_of_dict(list_of_dicts: List[Dict], reverse_resu
         The list of dictionaries to analyze.
     reverse_result: bool, optional
         If True, returns only unchanged values. Defaults to False.
+
     Returns
     -------
     Dict

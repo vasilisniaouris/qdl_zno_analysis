@@ -145,16 +145,16 @@ def parse_value(string: str) -> str:
     -----
     This method is based on the regular expression "^([pn]?)([0-9]+)(p[0-9]+|)(.*)$".
     The regex match-groups are:
-        - Sign: 0 or 1 occurrences of p (for positive '+') or n (for megative '-'). Matches empty string.
-        - Integer part: 1 or more digits.
-        - Decimal part: 0 or 1 occurrences of p (for decimal point '.') followed by 1 or more digits. Matches empty string.
-        - Unit: any amount (0 included) of any characters.
+    - Sign: 0 or 1 occurrences of p (for positive '+') or n (for megative '-'). Matches empty string.
+    - Integer part: 1 or more digits.
+    - Decimal part: 0 or 1 occurrences of p (for decimal point '.') followed by 1 or more digits. Matches empty string.
+    - Unit: any amount (0 included) of any characters.
     If the groups do not match the expected format, a warning is raised and None is returned.
     If the groups match the expected format, the groups are converted to standardized strings and returned.
     In the standardized string:
-        - the sign is represented by a '-' for negative, and '' for positive.
-        - the decimal point is represented by a '.', and the value is
-        - the unit is represented by any combination of characters, same as the input.
+    - the sign is represented by a '-' for negative, and '' for positive.
+    - the decimal point is represented by a '.', and the value is a numeric.
+    - the unit is represented by any combination of characters, same as the input.
 
     Examples
     --------

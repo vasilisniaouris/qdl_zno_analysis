@@ -1,16 +1,69 @@
 # Filenames
 
-Data acquisition often comes with a sear amount of datafile accumulation. Navigating through all these files can be 
-tricky and tedious. I found that searching for a specific file becomes easier by setting strict but versatile 
-file-naming conventions. 
+The acquisition of large amounts of data often results in a large number of data files that can be difficult to 
+navigate. To simplify this process, it is helpful to use strict but versatile file-naming conventions. 
+In this guide, we will present the file-naming conventions used in our package and provide examples of valid filenames. 
+We will also showcase some common mistakes to avoid.
 
-Chris and I came up with a system that would allow us to concisely store
-a large amount of information in a given datafile (let's call this information _experimental metadata_ or _metadata_ 
-for sort). This system evolved through the years and has recently been updated for increased functionality. 
+Our file-naming system was developed to store experimental metadata concisely in a given data file. 
+This system has evolved over the years and has recently been updated for increased functionality. 
+We use the `FilenameManager` class to easily access the metadata from one or more files simultaneously. 
+The `FilenameManager` provides three methods to parse through multiple filenames, which we will demonstrate in this
+guide.
 
-In this section I will present the rules that dictate our filename conventions, provide filename examples,
-and showcase some of the most common mistakes. Additionally, I will show you how to use the `FilenameManager` to easily 
-access the metadata, may it be from 1 or more files simultaneously. 
+To use this guide, it is helpful to define some terms. 
+"Experimental metadata" refers to the information stored in a data file that describes the experiment's conditions, 
+equipment, and procedures. "FilenameManager" is a class that provides easy access to filename metadata.
+
+In this guide, we will first present the rules that dictate our filename conventions, which are designed to 
+simplify data file navigation.  We will then provide examples of valid filenames and showcase some of the most common 
+mistakes to avoid. Additionally, we will show you how to use the `FilenameManager` to easily access the metadata from 
+one or more files simultaneously.  For more information on how to use the `FilenameManager` and the `FilenameInfo` 
+classes, go [here](#accessing-filename-metadata-with-filenameinfo-and-filenamemanager). 
+For a thorough guide on how to write a valid filename, go [here](#filename-conventions). 
+For a comprehensive list of all the predetermined filename headers, go 
+[here](#comprehensive-reference-guide-to-filename-conventions).
+
+## Quick and dirty
+
+To easily access the filename metadata from a file that follows the 
+[filename conventions](#comprehensive-reference-guide-to-filename-conventions), use the `FilenameManager` class. 
+Three methods are provided to parse through multiple filenames.
+
+```pycon
+>>> from qdl_zno_analysis.filename_utils.filename_manager import FilenameManager
+>>> filenames = ['001_Msc~Example1a_Tmp~1p2.csv', '001_Msc~Example1b_Tmp~1p2.txt', '002_Msc~Example2_Tmp~1p2.csv']
+>>> folder = 'some_folder'
+>>> # Method 1: Directly provide a list of filenames and the folder path. 
+>>> # This is useful if you already have a list of filenames that you want to analyze.
+>>> fnm = FilenameManager(filenames, folder)
+>>> # Method 2: Provide a range of file numbers and a list of file types. 
+>>> # This is useful if you want to analyze a range of files with specific file types, 
+>>> # such as all CSV files from file 1 to file 2. 
+>>> fnm = FilenameManager.from_file_numbers(range(1, 3), None, folder)
+>>> # Method 3:  Find all files in a folder that match a specific string in their filename. 
+>>> # This is useful if you want to analyze all files in a folder that have a certain pattern in their name, 
+>>> # such as all files with "Msc~Example" in the filename. 
+>>> fnm = FilenameManager.from_matching_string('*Msc~Example*', folder)
+```
+
+All methods will result in the same object. The class that stores all parsed filename information is called 
+`FilenameInfo`. Through this class you can access all the information you are interested in three forms: 
+
+- a python dataclass,
+- a dictionary with embedded sub-dictionaries, or
+- a normalized/flattened dictionary.
+
+See more on `FilenameInfo` [here](#filenameinfo). You can easily access all three from the `fnm` object we just created:
+
+```pycon
+    >>> fnm.filenames
+    >>> fnm.filename_info_list  # list of FilenameInfo objects for each filename
+    >>> fnm.filename_info_dicts  # dictionary of embedded sub-dictionaries
+    >>> fnm.changing_filename_info_dict  # normalized/flattened dictionary
+```
+
+For more information on `FilenameManager`, go [here](#filenamemanager).
 
 ## Comprehensive reference guide to filename conventions
 
@@ -26,82 +79,115 @@ To separate and properly assign information:
 
 ### Input types
 
-#### String
-All non-iterable inputs default to a string 
-
-#### Numeric
-- Sign: `p` for positive (optional) or `n` for negative
-- Floating point: `p` followed by any number of numerics.
-- Unit: optional, can be prefixed (recommended) or fully fledged (avoid).
-
-#### List entry
-Example: `Msc~Potato-Tomato` or `Col~Flt~LP380;BP370`
+| Input Type | Format                                                                                              | Special Symbols                                                                                                                                        | Example                                              |
+|------------|-----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
+| String     | Letters, Numbers, no special symbols                                                                | N/A                                                                                                                                                    | "ExampleName1"                                       |
+| Numeric    | - Sign (optional)<br>- Integer part (mandatory) <br>- Floating part (optional)<br>- Unit (optional) | - "p" for positive (optional) or "n" for negative<br>- "p" for "." followed by at least one numeric<br>- any character valid as a unit prefix or unit. | "n0p13n"                                             |
+| List Entry | Strings or numerics in a serial format, separated by secondary separators.                          | Secondary separators                                                                                                                                   | "Msc~Potato-Tomato"<br>"Col~PhH~40u-Flt~LP380;BP370" |
 
 ### Headers
 
-#### Dict format
-Example: `Lsr~Wvl~737p8n-Pwr~100n`
+Here 
+- \[I\] stands for input,
+- \[H\] stands for header name, 
+- \[S(N)\] stands for subheader, with N (optional) being the order in which subheader comes in the list of subheaders within a header,
+- \[SS(N)|] stands for subsubheader.
+- etc.
 
-#### List format
-Example: `Lsr~Matisse-737p8-100n-2-Air`
+The following use all special symbols except the primary separator.
 
-#### Nested sources
-Example A (two stationary laser sources, using their names as dictionary headers): 
-```text
-Lsr~Matisse~Wvl~737p8;Pwr~10n;Ord~2-Toptica~Wvl~368p1;Pwr~20n
-```
-Example B (one scanning and one stationary resource): 
-```text
-Lsr~Matisse~Wvl~From~737p7,To~737p9,Step~50p;Pwr~10n;Ord~2-Toptica~Wvl~368p1;Pwr~20n
-```
+| Format Type | Format                                               | Examples                                                                                                                                                  |
+|-------------|------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Dictionary  | \[H\]~\[S\]~\[I\]-\[S\]~\[I\]...                     | "Lsr~Wvl~737p8n_Pwr~100n"                                                                                                                                 |
+| List        | \[H\]~\[I for S1\]-\[I for S2\]...                   | "Lsr~Matisse-737p8-100n-2-Air"                                                                                                                            |
+| Nested      | \[H\]~\[S\]~\[SS\]~\[I\];\[SS\]~\[I\]-\[S\]~\[I\]... | "Lsr~Matisse~Wvl~737p8;Pwr~10n;Ord~2-Toptica~Wvl~368p1;Pwr~20n"<br>"Lsr~Matisse~Wvl~From~737p7,To~737p9,Step~50p;Pwr~10n;Ord~2-Toptica~Wvl~368p1;Pwr~20n" |
+
 
 #### Filename headers
-- `FNo`: file number
-- `Smp`: sample name
-- `Lsr`: lasers
-- `RFS`: RF sources
-- `MgF`: magnetic field
-- `Tmp`: temperature
-- `Exc`: excitation path optics
-- `Col`: collection path optics
-- `EnC`: excitation and collection path optics
-- `RFL`: RF lines
-- `MsT`: measurement type
-- `Msc`: miscellaneous
-- `Spt`: spot
-- `Misused`: (Internal) other information that were not matched according to the filename conventions.
+
+Example: 
+
+```text
+001_Smp~ZnO1_Lsr~Matisse-737p8-10n-2_Col~HWP~45deg-PnH~40u-Flt~LP380;BP370_MgF~5_Tmp~120m_Spt~From~n2u;3u-To~4u;8u-StepNo~61;26_MsT~ConfocalScanPL.csv
+```
+
+| Header name | Full name                              | `Info`-class property/attribute name       | `Info` subclass  | Input types                                          | Examples                       |
+|-------------|----------------------------------------|--------------------------------------------|------------------|------------------------------------------------------|--------------------------------|
+| "FNo"       | file number                            | fno, file_number                           | None             | Integer                                              | "001"                          |
+| "Smp"       | sample name                            | smp, sample                                | None             | String (rec), Numeric, List entry                    | "Smp~Zn1"                      |
+| "MgF"       | magnet field                           | mgf, magnet_field                          | None, `ScanInfo` | String, Numeric (rec), List entry, Dictionary format | "MgF~5"                        |
+| "Tmp"       | temperature                            | tmp, temperature                           | None, `ScanInfo` | String, Numeric (rec), List entry, Dictionary format | "Tmp~120m"                     |
+| "MsT"       | measurement type                       | mst, measurement_type                      | None             | String (rec), Numeric, List entry                    | "MsT~Lifetime"                 |
+| "Msc"       | miscellaneous                          | msc, miscellaneous                         | None             | String, Numeric, List entry                          | "Msc~Any-Information;you,want" |
+| "Spt"       | spot                                   | spt, spot                                  | None, `ScanInfo` | List entry, Dictionary format                        | "Spt~n1p05u-2p45u"             |
+| "Lsr"       | lasers                                 | lsr, lasers                                | `SourceInfo`     | Dictionary format, List format                       | "Lsr~Matisse-737p8n-10n-2"     |
+| "Exc"       | excitation path optics                 | exc, excitation_path_optics                | `OpticsInfo`     | Dictionary format, List format                       | "Exc~Plr~V-HWP~45deg"          |
+| "EnC"       | excitation and collection path optics  | enc, excitation_and_collection_path_optics | `OpticsInfo`     | Dictionary format, List format                       | "EnC~QWP~90deg"                |
+| "Col"       | collection path optics                 | exc, collection_path_optics                | `OpticsInfo`     | Dictionary format, List format                       | "Col~PnH~40u-Flt~LP380;BP370"  |
+| "RFS"       | RF sources                             | rfs, rf_sources                            | `SourceInfo`     | Dictionary format, List format                       | "RFS~Name~Synth-Frq~8p8G"      |
+| "RFL"       | RF lines                               | rfl, rf_lines                              | `RFLinesInfo`    | Not Implemented                                      | Not Implemented                |
+| "Misused"   | Misused, other (For internal use only) | other                                      | None             | Any elements not matching the conversions            | Do not use! Use "Msc" instead! |
+
 
 #### Source headers
-For lasers and RF sources: 
-- `Name`: name
-- `Wvl`, `Frq`, `Eng`: wavelength, frequency, or energy, respectively.
-- `Pwr`: power
-- `Ord`: `order`
-- `Mdm`: material medium where input wavelength took place. Case-insensitive. The only acceptable values are 
-  (`A`, `Air`) and (`V`, `Vac`, `Vacuum`). Defaults to `Air`. 
-- `Msc`: miscellaneous
+For lasers and RF sources. Example: 
+
+```text
+Lsr~Matisse-737p8-10n-2
+```
+
+| Header name | Full name            | `Info`-class property/attribute name                     | `Info` subclass  | Input types                                                                         | Examples                    |
+|-------------|----------------------|----------------------------------------------------------|------------------|-------------------------------------------------------------------------------------|-----------------------------|
+| "Name"      | name                 | name                                                     | None             | String (rec), Numeric, List entry                                                   | "Matisse"                   |
+| "Wvl"       | wavelength           | wfe, wvl_air, wvl_vac, wavelength_air, wavelength_vacuum | None, `ScanInfo` | String, Numeric (rec), List entry, Dictionary format                                | "Wvl~737p8n"                |
+| "Frq"       | frequency            | wfe, frq, frequency                                      | None, `ScanInfo` | String, Numeric (rec), List entry, Dictionary format                                | "Frq~8p8G"                  |
+| "Eng"       | energy               | wfe, eng, energy                                         | None, `ScanInfo` | String, Numeric (rec), List entry, Dictionary format                                | "Eng~334p5m"                |
+| "Pwr"       | power                | pwr, power                                               | None, `ScanInfo` | String, Numeric (rec), List entry, Dictionary format                                | "Pwr~100n"                  |
+| "Ord"       | Nth order generation | ord, order                                               | None             | Integer                                                                             | "Ord~2"                     |
+| "Mdm"       | Input medium         | mdm, medium                                              | None             | String: "Air" (default) or "Vacuum".<br>Only affects wfe if wavelength is provided. | "Mdm~Air"                   |
+| "Msc"       | miscellaneous        | msc, miscellaneous                                       | None             | String, Numeric, List entry                                                         | "Msc~Any;Extra,Information" |
+
 
 #### Optical path headers
-For excitation, collection, and excitation/collection path optics
-- `HWP`, `WP2`: half waveplate angle
-- `QWP`, `WP4`: quarter waveplate angle
-- `Plr`: polarizer
-- `PnH`: pinhole
-- `Flt`: filters
-- `Msc`: miscellaneous
+For excitation, collection, and excitation/collection path optics. Example:
+
+```text
+HWP~n21p2deg-QWP~0p33rad-Plr~V-PnH~40u-Flt~LP380;BP370
+```
+
+| Header name  | Full name               | `Info`-class property/attribute name | `Info` subclass  | Input types                                          | Examples                    |
+|--------------|-------------------------|--------------------------------------|------------------|------------------------------------------------------|-----------------------------|
+| "HWP", "WP2" | half waveplate angle    | hwp, wp2, half_waveplate_angle       | None, `ScanInfo` | String, Numeric (rec), List entry, Dictionary format | "HWP~n21p2deg"              |
+| "QWP", "WP4" | quarter waveplate angle | qwp, wp4, quarter_waveplate_angle    | None, `ScanInfo` | String, Numeric (rec), List entry, Dictionary format | "QWP~0p33rad"               |
+| "Plr"        | polarizer               | plr, polarizer                       | None, `ScanInfo` | String, Numeric (rec), List entry, Dictionary format | "Plr~V"                     |
+| "PnH"        | pinhole                 | pnh, pinhole                         | None             | String, Numeric (rec), List entry                    | "PnH~40u"                   |
+| "Flt"        | filter                  | flt, filter                          | None             | String, Numeric (rec), List entry                    | "Flt~LP380;BP370"           |
+| "Msc"        | miscellaneous           | msc, miscellaneous                   | None             | String, Numeric, List entry                          | "Msc~Any;Extra,Information" |
+
 
 #### RF-line headers
 Not implemented, yet.
 
 #### Scan Headers
-- `Start` or `From` or `Initial` or `Init`: start value
-- `Stop` or `To` or `Final`: final value
-- `Step`, `Resolution`, `Res`: step size
-- `StepNo`: step number
-- `Rate`: scanning rate 
-- `Duration`, `Dur`: total scan duration
-- `Mode`: scan mode (e.g. Continuous, Discreet)
-- `Msc`: miscellaneous
+
+Example:
+
+```text
+Spt~From~n2u;3u-To~4u;8u-StepNo~61;26
+```
+
+| Header name                        | Full name               | `Info`-class property/attribute name | `Info` subclass | Input types                            | Examples           |
+|------------------------------------|-------------------------|--------------------------------------|-----------------|----------------------------------------|--------------------|
+| "Start", "From", "Init", "Initial" | start value             | start, initial                       | None            | String, Numeric (rec), List entry      | "From~n2u;3u"      |
+| "Stop", "To", "Final"              | final value             | stop, final                          | None            | String, Numeric (rec), List entry      | "To~4u;8u"         |
+| "Step", "Res", "Resolution"        | step size               | step                                 | None            | String, Numeric (rec), List entry      | "Step~100n;50n"    |
+| "StepΝο", "Res", "Resolution"      | step number             | step_no                              | None            | String, Numeric (rec), List entry      | "StepNo~61;26"     |
+| "StepΝο", "Res", "Resolution"      | step number             | step_no                              | None            | String, Numeric (rec), List entry      | "StepNo~61;26"     |
+| "Rate"                             | scanning rate           | rate                                 | None            | String, Numeric (rec), List entry      | "Rate~0p005;0p003" |
+| "Dur", "Duration"                  | total accumulation time | duration                             | None            | String, Numeric (rec), List entry      | "Dur~100s"         |
+| "Mode"                             | scan mode               | mode                                 | None            | String (e.g. "Continuous", "Discreet") | "Mode~Continuous"  |
+| "Msc"                              | miscellaneous           | msc, miscellaneous                   | None            | String, Numeric, List entry            | "Msc~Anything"     |
+
 
 ## Filename conventions
 
@@ -282,7 +368,7 @@ If a filename includes wrongful notation, performance is not guaranteed.
 For the most common mistake, using `_` between any value, we make sure to store all that misused information as a list.
 
 
-## FilenameInfo and FilenameManager - Easy access to all filename information 
+## Accessing filename metadata with FilenameInfo and FilenameManager
 Now that we know how to name our files, we can use the `FilenameManager` for sort to easily access all of this 
 stored information. For each file, the FilenameManager creates a `FilenameInfo` dataclass. Each filename header will be
 converted to a class attribute. The user will not need to interface with the `FilenameInfo` object, unless they need 
@@ -303,8 +389,16 @@ to initialize a `FilenameInfo` object from a filename.
 FilenameInfo(file_number=1, sample_name='ZnO1', lasers=SourceInfo(name='Matisse', wfe=<Quantity(737.8, 'nanometer')>, wavelength_vacuum=<Quantity(369.001625, 'nanometer')>, wavelength_air=<Quantity(368.9, 'nanometer')>, frequency=<Quantity(812442.109, 'gigahertz')>, energy=<Quantity(3.35999058, 'electron_volt')>, power=<Quantity(10.0, 'nanowatt')>, order=2, medium='Air'), magnetic_field=<Quantity(5.0, 'tesla')>, temperature=<Quantity(120.0, 'millikelvin')>, collection_path_optics=OpticsInfo(half_waveplate_angle=<Quantity(45.0, 'degree')>, pinhole=<Quantity(40.0, 'micrometer')>, filters=['LP380', 'BP370']), measurement_type='ConfocalScanPL', spot=ScanInfo(start=<Quantity([-2.  3.], 'micrometer')>, stop=<Quantity([4. 8.], 'micrometer')>, step=<Quantity([0.1 0.2], 'micrometer')>, step_no=array([61, 26]), direction=array([1, 1])))
 ```
 
-You see that in the printed statement, only the fields that have been initialized are printed out .To access `fni` as
-a dictionary:
+You see that in the printed statement, only the fields that have been initialized are printed out. You can access each 
+element you by calling the corresponding dataclass attribute:
+```pycon
+>>> fni.filenumber
+1
+>>> fni.lasers
+SourceInfo(name='Matisse', wfe=<Quantity(737.8, 'nanometer')>, wavelength_vacuum=<Quantity(369.001625, 'nanometer')>, wavelength_air=<Quantity(368.9, 'nanometer')>, frequency=<Quantity(812442.109, 'gigahertz')>, energy=<Quantity(3.35999058, 'electron_volt')>, power=<Quantity(10.0, 'nanowatt')>, order=2, medium='Air')
+```
+
+To access `fni` as a dictionary:
 
 ```pycon
 >>> fni.to_dict()

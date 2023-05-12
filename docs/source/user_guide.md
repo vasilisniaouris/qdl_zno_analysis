@@ -10,4 +10,5 @@ maxdepth: 2
 ---
 
 user_guide/filenames.md
+user_guide/data.md
 ```

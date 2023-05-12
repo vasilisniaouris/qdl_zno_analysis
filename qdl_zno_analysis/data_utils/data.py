@@ -201,7 +201,7 @@ class Data:
         `x_value` of `y_axis` data-column or the position of the maximum value of the `y_axis` data-column
         if `x_value` is not provided.
 
-        E.g. if `x_axis` is 'pixel' and `y_axis` is 'counts', if the `x_value`is defined,
+        E.g. if `x_axis` is 'pixel' and `y_axis` is 'counts', if the `x_value` is defined,
         this method will find the 'counts' at, or near, the x-value of 'pixel'
         ('linear' interpolation or 'nearest', depending on `mode`) and normalize everything to this value.
         If x_value is None, the method will find the maximum value of the 'counts' and normalize to this value.
@@ -214,7 +214,7 @@ class Data:
         x_axis : str
             The column of data to use as the x-axis
         y_axis : str
-            The column of data to use as the y-axis
+            The column of data to use as the y-axis to find the maximum value argument
         shared_y_string_key : str
             A string indicating the shared substring in the keys of the y-axis columns to be normalized.
         mode : str, optional
@@ -277,8 +277,8 @@ class Data:
             Figure object to use for the plot. If not provided, and ax is missing, a new figure will be created.
         ax : plt.Axes, optional
             Axes object to use for the plot. If not provided, a new subplot will be created.
-        *plot_args, **plot_kwargs
-            Additional arguments and keyword arguments to pass to the `matplotlib.pyplot.plot` function.
+        plot_args, plot_kwargs
+            Additional arguments and keyword arguments to pass to the matplotlib.pyplot.plot function.
 
         Returns
         -------
