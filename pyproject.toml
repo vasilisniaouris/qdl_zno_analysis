@@ -35,6 +35,11 @@ dependencies = [
 # dynamic = ["version"]
 
 [project.optional-dependencies]
+all = [
+    "qdl_zno_analysis[visualization]",
+    "qdl_zno_analysis[spectroscopy]",
+    "qdl_zno_analysis[example_data]",
+]
 visualization = [
     "matplotlib>=3.7.1",
 ]

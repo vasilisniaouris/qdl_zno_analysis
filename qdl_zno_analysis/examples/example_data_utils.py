@@ -252,7 +252,7 @@ class GoogleDriveContent:
         if content_path is None:
             content = self
         else:
-            content = str(self.get_content_from_path(content_path))
+            content = self.get_content_from_path(content_path)
 
         if output is not None:
             output = str(output)

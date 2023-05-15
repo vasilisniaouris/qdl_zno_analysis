@@ -9,34 +9,38 @@ the analysis spectral and temporal data collected on ZnO substrates (and other m
 # Installation
 There's two ways to install the core package through GitHub.
 
-To directly install it from GitHub, you can use the following command:
-~~~shell
-pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git
-~~~
-
-Or you can clone the repository and then use pip to install the package.
-~~~shell
-git clone https://github.com/vasilisniaouris/qdl_zno_analysis.git
-pip install qdl_zno_analysis
-~~~
+1. To directly install it from GitHub, you can use the following command:
+   ~~~shell
+   pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git
+   ~~~
+   which is equivalent to: 
+   ~~~shell
+   pip install "qdl_zno_analysis @ git+https://github.com/vasilisniaouris/qdl_zno_analysis.git"
+   ~~~
+2. Or you can clone the repository and then use pip to install the package.
+   ~~~shell
+   git clone https://github.com/vasilisniaouris/qdl_zno_analysis.git
+   pip install qdl_zno_analysis
+   ~~~
 
 ## Installation extras
 
-To install all extra dependencies, append [all] to the end of the `pip install ...[all]` command.
+To install all extra dependencies, append [all] to the end of the `pip install qdl_zno_analysis[all]` command.
 For specific dependencies, check out the different headers in the [Dependencies](#dependencies) section.
 ~~~shell
-pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git[header]
+pip install "qdl_zno_analysis[header1,header2,...] @ git+https://github.com/vasilisniaouris/qdl_zno_analysis.git"
 ~~~
 
-If you want to install the developer's branch (dev) that has the newest features but may break more easily, append `@dev`
-at the end of the GitHub link:
+If you want to install the developer's branch (dev) that has the newest features but may break more easily, 
+append `@dev` at the end of the GitHub link:
 ~~~shell
 pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git@dev
 ~~~
 
-If you want to install a specific release, you can append the version of your choice, e.g. `@v0.1.0`, to the GitHub link
+If you want to install a specific release, you can append the version of your choice, e.g. `@v0.1.0`, 
+to the GitHub link:
 ~~~shell
-git+https://github.com/vasilisniaouris/qdl_zno_analysis.git@v0.1.0
+pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git@v0.1.0
 ~~~
 
 # Examples
@@ -58,6 +62,7 @@ For extra functionality, you may want to install additional dependencies, with t
 
 | Header          | Dependencies                          |
 |-----------------|---------------------------------------|
+| `all`           | everything listed below               |
 | `visualization` | `"matplotlib>=3.7.1"`                 |
 | `spectroscopy`  | `"sif_parser", "spe2py", "xmltodict"` |
 | `example_data`  | `"requests", "gdown"`                 |
