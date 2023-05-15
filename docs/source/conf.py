@@ -74,7 +74,7 @@ autoapi_dirs = [f"../../{_project_metadata['name']}"]
 autoapi_add_toctree_entry = True
 autoapi_python_class_content = 'both'  # both class doc and __init__ doc
 autoapi_member_order = 'groupwise'
-autoapi_keep_files = True
+autoapi_keep_files = False
 
 # napoleon extension settings
 # napoleon_google_docstring = True

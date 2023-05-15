@@ -28,8 +28,8 @@ classifiers = [
 dependencies = [
     "numpy>=1.24.2",
     "pandas",
-    "pint>=0.20.1",
-    "pint-pandas",
+    "pint>=0.21",
+    "pint-pandas @ git+https://github.com/hgrecco/pint-pandas.git",
     "scipy",
 ]
 # dynamic = ["version"]

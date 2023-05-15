@@ -2,9 +2,13 @@ import warnings
 from dataclasses import dataclass
 from typing import ClassVar
 
-import requests
-from gdown.download import _get_session, download
-from gdown.download_folder import _parse_google_drive_file, download_folder
+try:  # example data dependencies
+    import requests
+    from gdown.download import _get_session, download
+    from gdown.download_folder import _parse_google_drive_file, download_folder
+except ModuleNotFoundError:
+    pass
+
 from pathlib import Path
 
 from qdl_zno_analysis.errors import NotFoundError

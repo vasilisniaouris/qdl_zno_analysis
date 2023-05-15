@@ -7,11 +7,19 @@ import warnings
 from pathlib import Path
 from typing import Iterable, Any, Type
 
-import matplotlib.pyplot as plt
+try:  # visualization dependencies
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:
+    pass
+
 import numpy as np
-import spe_loader as sl
-import xmltodict
-from sif_parser import np_open as read_sif
+
+try:  # spectroscopy dependencies
+    import spe_loader as sl
+    import xmltodict
+    from sif_parser import np_open as read_sif
+except ModuleNotFoundError:
+    pass
 
 from qdl_zno_analysis import Qty
 from qdl_zno_analysis.data_utils.metadata import Metadata, MetadataSpectrum
