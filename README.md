@@ -7,50 +7,63 @@ the analysis spectral and temporal data collected on ZnO substrates (and other m
 - [GitHub Repository](https://github.com/vasilisniaouris/qdl_zno_analysis)
 
 # Installation
-To install the package you can either
-1.  directly install it from GitHub you can use the following command:
-    ~~~shell
-    pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git
-    ~~~
-    This will install the latest version of the package from the master branch. 
+There's two ways to install the core package through GitHub.
 
-    If you want to install a specific release, you can use the tag name instead of master, like this:
-    ~~~shell
-    pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git@v0.1.0
-    ~~~
-    Replace v0.1.0 with the tag name of the release you want to install.
+To directly install it from GitHub, you can use the following command:
+~~~shell
+pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git
+~~~
 
-2. Or, Alternatively, you can clone the repository:
+Or you can clone the repository and then use pip to install the package.
+~~~shell
+git clone https://github.com/vasilisniaouris/qdl_zno_analysis.git
+pip install qdl_zno_analysis
+~~~
 
-    ~~~shell
-    git clone https://github.com/vasilisniaouris/qdl_zno_analysis.git
-    ~~~
-    
-    Navigate to the cloned directory:
-    ~~~shell
-    cd qdl_zno_analysis
-    ~~~
-    
-    And, finally, use pip to install the package:
-    ~~~shell
-    pip install .
-    ~~~
+## Installation extras
 
-And you are all done. The qdl_zno_analysis should be available to you as a python module.
+To install all extra dependencies, append [all] to the end of the `pip install ...[all]` command.
+For specific dependencies, check out the different headers in the [Dependencies](#dependencies) section.
+~~~shell
+pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git[header]
+~~~
+
+If you want to install the developer's branch (dev) that has the newest features but may break more easily, append `@dev`
+at the end of the GitHub link:
+~~~shell
+pip install git+https://github.com/vasilisniaouris/qdl_zno_analysis.git@dev
+~~~
+
+If you want to install a specific release, you can append the version of your choice, e.g. `@v0.1.0`, to the GitHub link
+~~~shell
+git+https://github.com/vasilisniaouris/qdl_zno_analysis.git@v0.1.0
+~~~
 
 # Examples
 Pending...
 
 # Dependencies
-The QDL ZnO Data Analysis Toolkit requires the following dependencies:
+The QDL ZnO Data Analysis Toolkit has the following core dependencies:
 
-~~~
-"matplotlib>=3.7.1"
+~~~text
 "numpy>=1.24.2"
 "pandas"
-"pint>=0.20.1"
+"pint~0.20.1"
+"pint-pandas"
 "scipy"
 ~~~
+
+For extra functionality, you may want to install additional dependencies, with the command  
+`pip install ...[header]`
+
+| Header          | Dependencies                          |
+|-----------------|---------------------------------------|
+| `visualization` | `"matplotlib>=3.7.1"`                 |
+| `spectroscopy`  | `"sif_parser", "spe2py", "xmltodict"` |
+| `example_data`  | `"requests", "gdown"`                 |
+
+To install all optional dependencies, use the header `all`: `pip install ...[all]`.
+
 
 # License
 The QDL ZnO Data Analysis Toolkit is released under the GNU GPL v3 license. See LICENSE for more information.

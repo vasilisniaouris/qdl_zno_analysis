@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qdl_zno_analysis"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
     {name = "Vasilis Niaouris", email = "vasilisniaouris@gmail.com"},
 ]
@@ -26,19 +26,28 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 dependencies = [
-    "matplotlib>=3.7.1",
     "numpy>=1.24.2",
     "pandas",
     "pint>=0.20.1",
     "pint-pandas",
     "scipy",
+]
+# dynamic = ["version"]
+
+[project.optional-dependencies]
+visualization = [
+    "matplotlib>=3.7.1",
+]
+spectroscopy = [
     "sif_parser",
     "spe2py",
     "xmltodict",
 ]
-# dynamic = ["version"]
+example_data = [
+    "requests",
+    "gdown",
+]
 
-#[project.optional-dependencies]
 #examples = ["notebook"]
 
 [project.urls]
