@@ -217,7 +217,7 @@ class FilenameManager:
         full_filenames = [self.folder.joinpath(filename) for filename in self.filenames]
 
         return full_filenames if not self.check_validity else [full_filename for full_filename in full_filenames
-                                                               if full_filename.is_file()]
+                                                               if full_filename.exists()]
 
     def _get_filename_info_list(self) -> List[FilenameInfo]:
         """ Get list of `FilenameInfo` objects. """
@@ -338,9 +338,9 @@ class FilenameManager:
                 if filetypes is not None:
                     if len(filetypes):
                         if dir_filenames[i].suffix.replace('.', '') in filetypes:
-                            filenames.append(dir_filenames[i])
+                            filenames.append(dir_filenames[i].name)
                 else:
-                    filenames.append(dir_filenames[i])
+                    filenames.append(dir_filenames[i].name)
 
         return cls(filenames, folder, True)
 
