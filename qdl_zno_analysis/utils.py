@@ -30,7 +30,7 @@ from pint_xarray.conversion import extract_units, strip_units, attach_units
 from qdl_zno_analysis import ureg, Qty
 from qdl_zno_analysis.constants import default_units
 from qdl_zno_analysis.errors import MethodInputError
-from qdl_zno_analysis.typevars import EnhancedNumeric
+from qdl_zno_analysis.typevars import EnhancedNumeric, XRObject
 
 
 def is_unit_valid(unit_str: str) -> bool:
@@ -360,12 +360,12 @@ def find_changing_values_in_list_of_dict(list_of_dicts: List[Dict], reverse_resu
     for key in list_of_dicts[0].keys():
 
         first_value = getattr(first_dict[key], 'magnitude', first_dict[key])  # if Qty get magnitude, else get value.
-        first_value = tuple(first_value) if isinstance(first_value, Iterable) else first_value  # make it a tuple.
+        first_value = tuple(first_value) if len(np.shape(first_value)) else first_value  # make it a tuple.
         value_list = [first_value]
 
         for d in list_of_dicts[1:]:
             test_element = getattr(d[key], 'magnitude', d[key])  # if Qty get magnitude, else get value.
-            test_element = tuple(test_element) if isinstance(test_element, Iterable) else test_element
+            test_element = tuple(test_element) if len(np.shape(test_element)) else test_element
 
             if test_element not in value_list:
                 value_list = [d[key] for d in list_of_dicts]
@@ -611,12 +611,12 @@ def convert_coord_to_dim(coord: xr.DataArray, coord_data_to_convert=None):
 
 
 def integrate_xarray(
-        xarray_data: xr.Dataset | xr.DataArray,
+        xarray_data: XRObject,
         start: EnhancedNumeric | None = None,
         end: EnhancedNumeric | None = None,
         coord: str | None = None,
         var: str | None = None,
-) -> xr.Dataset | xr.DataArray:
+) -> XRObject:
     """
     Integrates the area under the curve of the data array/set within a given range.
 
@@ -700,13 +700,13 @@ def integrate_xarray(
 
 
 def get_normalized_xarray(
-        xarray_data: xr.Dataset | xr.DataArray,
+        xarray_data: XRObject,
         norm_axis_val: EnhancedNumeric | xr.DataArray | np.ndarray | None = None,
         norm_axis: str | None = None,
         norm_var: str | None = None,
         mode='nearest',
         subtract_min=True
-) -> xr.Dataset | xr.DataArray:
+) -> XRObject:
     """
     Get normalized data based on specified parameters.
 

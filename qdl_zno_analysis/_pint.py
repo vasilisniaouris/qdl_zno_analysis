@@ -2,6 +2,9 @@
 from pint_xarray import unit_registry as _ureg
 
 
+_ureg.default_format = "~P"
+
+
 class _Q(_ureg.Quantity):
     """
     A `pint.Quantity` subclass based on the xarray UnitRegistry. The goal of this class is to allow for
