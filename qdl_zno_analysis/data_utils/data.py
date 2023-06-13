@@ -583,7 +583,7 @@ class DataSpectrum(Data):
 
         if 'calibrated_values' not in self.metadata.variables \
                 and 'calibration_data' in self.metadata.variables:
-            self._metadata['calibrated_values'] = ('pixel', ), self._applied_calibration()
+            self._metadata['calibrated_values'] = ('pixel',), self._applied_calibration()
 
         bgpc = self._user_info.background_per_cycle
         if isinstance(bgpc, xr.DataArray):
@@ -603,8 +603,25 @@ class DataSpectrum(Data):
         self._metadata['background_per_time'] = \
             self._metadata['background_per_cycle'] / self.metadata['exposure_time']
 
-        # TODO: Add fileinfo metadata
-        # TODO: use fileinfo metadata to calculate power-related bg
+        # TODO: Add this to Data, before reading files!!
+        for key, value in self.filename_manager.non_changing_filename_info_dict.items():
+            if np.ndim(value) == 0:
+                self._metadata[key] = (), value
+            elif isinstance(value, Qty):
+                self._metadata[key] = (), Qty(set(value.m), value.u)
+            else:
+                self._metadata[key] = (), np.array(set(value))
+
+        for key, value in self.filename_manager.changing_filename_info_dict.items():
+            if np.ndim(value) == 1:
+                self._metadata[key] = ('file_index',), value
+            else:
+                self._metadata[key] = ('file_index',), set(value)  # TODO: fix, will not work.
+
+        excitation_power_dict = self._get_excitation_power_dict()
+        for laser_power_name, laser_power in excitation_power_dict.items():
+            data_key = f"background_per_time_per_{laser_power_name}"
+            self._metadata[data_key] = self.metadata['background_per_time'] / laser_power
 
     def _data_post_init(self):
         super()._data_post_init()
@@ -615,25 +632,16 @@ class DataSpectrum(Data):
     def _set_all_data_coords(self):
         """ Sets all the coordinate-related data for the spectral data. """
 
-        # frame-related coordinates
-        # if np.ndim(self.metadata.exposure_time) == 0:
-        #     self._data = self._data.assign_coords({
-        #         'time': (('frame',), self._data['frame'].data * self.metadata.exposure_time.data),
-        #     })
-        # else:
-        #     self._data = self._data.assign_coords({
-        #         'time': (('file_index', 'frame',), self._data['frame'].data * self.metadata.exposure_time),
-        #     })
         self._data = self._data.assign_coords({
-                    'time': self._data['frame'] * self.metadata.exposure_time
-                })
+            'time': self._data['frame'] * self.metadata.exposure_time
+        })
 
         # pixel-related coordinates
         # get calibrated WFE
         calibrated_values = self._metadata['calibrated_values'].data.copy()
         diff_ord = self._metadata['diffraction_order']
         if diff_ord != 1:
-            calibrated_values *= 1/diff_ord if calibrated_values.check('[length]') else diff_ord
+            calibrated_values *= 1 / diff_ord if calibrated_values.check('[length]') else diff_ord
         wfe = WFE(calibrated_values)  # assumes air as medium
 
         self._data = self._data.assign_coords({
@@ -648,12 +656,10 @@ class DataSpectrum(Data):
         self._data['counts_per_cycle'] = self.data['counts'] / self.metadata['cycles']
         self._data['counts_per_time'] = self.data['counts_per_cycle'] / self.metadata['exposure_time']
 
-        power_dict = self._get_excitation_power()
-        for laser_name, power in power_dict.items():  # for each laser, we get a different power-related data-column.
-            data_key = f"counts_per_time_per_{laser_name}_power" if laser_name else "counts_per_time_per_power"
-
-            self._data[data_key] = ('file_index', 'frame', 'pixel'), \
-                to_qty_force_units(self.data['counts_per_time'].data / power, 'counts/time/power')
+        excitation_power_dict = self._get_excitation_power_dict()
+        for laser_power_name, laser_power in excitation_power_dict.items():
+            data_key = f"counts_per_time_per_{laser_power_name}"
+            self._data[data_key] = self.data['counts_per_time'] / laser_power
 
         self._data['nobg_counts'] = \
             self.data['counts'] - self.metadata['background']
@@ -662,14 +668,12 @@ class DataSpectrum(Data):
         self._data['nobg_counts_per_time'] = \
             self.data['counts_per_time'] - self.metadata['background_per_time']
 
-        for laser_name, power in power_dict.items():  # for each laser, we get a different power-related data-column.
-            data_key = f"counts_per_time_per_{laser_name}_power" if laser_name else "counts_per_time_per_power"
-            bg_key = f"background_per_time_per_{laser_name}_power" if laser_name else "background_per_time_per_power"
+        for laser_power_name in excitation_power_dict:
+            data_key = f"counts_per_time_per_{laser_power_name}"
+            bg_key = f"background_per_time_per_{laser_power_name}"
+            self._data[f'nobg_{data_key}'] = self._data[data_key] - self.metadata[bg_key]
 
-            self._data[f"nobg_{data_key}"] = \
-                self.data[data_key] - self.metadata[bg_key]
-
-    def _get_excitation_power(self) -> dict[str, EnhancedNumeric]:
+    def _get_excitation_power_dict(self) -> dict[str, xr.DataArray]:
         """
         Finds the excitation power(s) of the laser(s) used to collect the spectrum.
         Finds the total laser power as well.
@@ -679,26 +683,24 @@ class DataSpectrum(Data):
         A dictionary of the form {laser_name: excitation_power} for each laser used, and a key with an empty string for
         the total excitation power.
         """
-        return {}
-        # print(self.filename_manager.non_changing_filename_info_dict)
-        lasers = self.filename_info.lsr
 
-        if isinstance(lasers, dict):
-            power_dict = {str_to_valid_varname(key): to_qty_force_units(value.power, 'power')
-                          for key, value in lasers.items()}
-            power_dict[''] = np.sum([value for value in lasers.values()])
-        elif lasers is not None:
-            power_dict = {str_to_valid_varname(lasers.name): to_qty_force_units(lasers.power, 'power')} \
-                if lasers.name is not None else {}
-            power_dict[''] = to_qty_force_units(lasers.power, 'power')
+        laser_power_names: list[str] = [str(key) for key in list(self._metadata.variables.keys())
+                                        if str(key).startswith('lasers.') and str(key).endswith('.power')]
+
+        if 'lasers.name' in self.metadata.variables.keys():
+            excitation_power_dict = {'power': to_qty_force_units(self.metadata['lasers.power'], 'power')}
         else:
-            power_dict = {}
+            excitation_power_dict = \
+                {lpn.lstrip('lasers.').replace('.', '_'): to_qty_force_units(self.metadata[lpn], 'power')
+                 for lpn in laser_power_names}
 
-        for key in power_dict.keys():
-            if power_dict[key] is None or power_dict[key].m == 0:
-                power_dict[key] = np.nan
+            excitation_power_dict['power'] = np.sum([self.metadata[lpn] for lpn in laser_power_names])
 
-        return power_dict
+        for key in excitation_power_dict.keys():
+            if excitation_power_dict[key].data is None or excitation_power_dict[key].data.m == 0:
+                excitation_power_dict[key] = to_qty_force_units(np.nan, 'power')
+
+        return excitation_power_dict
 
     def _applied_calibration(self) -> Qty:
         """ Apply the calibration data to the pixel list in order to obtain calibrated values
@@ -731,4 +733,3 @@ class DataSpectrum(Data):
             raise ValueError('...')  # TODO: Change error message
 
         return coord_names
-
