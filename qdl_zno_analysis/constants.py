@@ -1,7 +1,7 @@
 """
 This module contains the constants used in throughout this package.
 """
-from typing import Iterable, List
+from typing import Iterable
 
 import numpy as np
 from pandas import DataFrame
@@ -12,13 +12,13 @@ from qdl_zno_analysis.errors import MethodInputError
 from qdl_zno_analysis.external_data import df_from_ext_data
 
 
-def _get_ureg_unit_prefixes() -> List:
+def _get_ureg_unit_prefixes() -> list:
     """
     Returns a list of unique prefix symbols used by the pint.UnitRegistry instance.
 
     Returns
     -------
-    List:
+    list:
         A list of unique prefix symbols used by the pint.UnitRegistry instance.
 
     Examples

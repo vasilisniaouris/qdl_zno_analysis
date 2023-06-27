@@ -1,3 +1,7 @@
+"""
+This module is intended to be used as an internal helper module for importing dependencies
+that are optional in the base installation.
+"""
 
 # Visualization dependencies
 try:

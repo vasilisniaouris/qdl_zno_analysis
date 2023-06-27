@@ -13,7 +13,7 @@ Notes
 
 import re
 import warnings
-from typing import List, Dict, Tuple, Any
+from typing import Any
 
 from pathlib import Path
 
@@ -74,7 +74,7 @@ def _get_next_separator(separator) -> str | None:
     return None
 
 
-def _get_filename_subset_string_format_regex(separator, sep_below_str=None) -> Tuple[str, str]:
+def _get_filename_subset_string_format_regex(separator, sep_below_str=None) -> tuple[str, str]:
     """
     Returns a tuple containing the regular expression (regex) patterns for matching subset_str strings in a filename.
 
@@ -199,7 +199,7 @@ def parse_value(string: str) -> str:
     return modified_string
 
 
-def parse_subset_str(subset_str: str, separator: str = '-') -> Dict | List | str:
+def parse_subset_str(subset_str: str, separator: str = '-') -> dict | list | str:
     """
     Parse a subset of a filename string into a nested dictionary or a list of values.
     This function calls recursively on itself to read the sunset string in different separator levels.
@@ -214,7 +214,7 @@ def parse_subset_str(subset_str: str, separator: str = '-') -> Dict | List | str
 
     Returns
     -------
-    Dict | List | str
+    dict | list | str
         If the subset string has a dictionary-like format (e.g. 'Wvl~From~369p1n;To~340p1n;Step~1-Pwr~10uW'),
         it returns a nested dictionary where each key is a header and each value is the parsed result of its
         corresponding substring. If the subset string has a list-like format
@@ -250,7 +250,7 @@ def parse_subset_str(subset_str: str, separator: str = '-') -> Dict | List | str
         return parse_value(finds[0])
 
 
-def parse_filename(filename: AnyString) -> Dict[str, Any]:
+def parse_filename(filename: AnyString) -> dict[str, Any]:
     """
     Parse a filename string into a dictionary of key-value pairs.
 
@@ -266,7 +266,7 @@ def parse_filename(filename: AnyString) -> Dict[str, Any]:
 
     Returns
     -------
-    Dict[str, str | List[str] | Dict[str, str | Dict[str | str]]]
+    dict[str, str | list[str] | dict[str, str | dict[str | str]]]
         A dictionary containing information parsed from the filename. The dictionary may include
         the following keys: 'FNo', 'Misused', and other keys derived from the subset_str strings in the
         filename. The first numeric string will be parsed as the file number 'FNo'

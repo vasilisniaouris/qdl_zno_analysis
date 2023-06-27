@@ -7,7 +7,7 @@ with the `FilenameManager` class.
 
 import inspect
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, ClassVar
+from typing import Tuple, ClassVar
 
 import numpy as np
 
@@ -42,19 +42,19 @@ class Info(Dataclass):
     extracting information from filename strings.
     """
 
-    _attr_physical_type_dict: Dict[str, str] = field(repr=False, default_factory=dict)
+    _attr_physical_type_dict: dict[str, str] = field(repr=False, default_factory=dict)
     """ A dictionary that maps attribute names to their unit physical type in a parsed filename. """
 
-    _header_code_to_attr_name_conversion_dict: ClassVar[Dict[str, str]] = {}
+    _header_code_to_attr_name_conversion_dict: ClassVar[dict[str, str]] = {}
     """ A dictionary that maps the header code of a parsed filename to the corresponding attribute name of a `Info`
     object. """
 
-    _info_based_parameters: ClassVar[Dict] = {}
+    _info_based_parameters: ClassVar[dict] = {}
     """ A dictionary that maps attribute names to the class of the object that the attribute represents if the
      attribute is an `Info` subclass. """
 
     @classmethod
-    def get_hc2arg(cls) -> Dict[str, str]:
+    def get_hc2arg(cls) -> dict[str, str]:
         """ Returns a dictionary that maps the header code of a parsed filename to the corresponding attribute name of a
         `Info` object. """
         return cls._header_code_to_attr_name_conversion_dict
@@ -129,16 +129,16 @@ class ScanInfo(Info):
     """ The step size of the scan. May be a list of values, same size as start and stop. """
     step_no: int | np.ndarray[int] | Qty | None = None
     """ The number of steps of the scan. May be a list of values, same size as start and stop. """
-    direction: str | List[str] | np.ndarray[int] | None = field(default=None, init=False)
+    direction: str | list[str] | np.ndarray[int] | None = field(default=None, init=False)
     """ The scanning direction. May be a list of values. """
 
-    rate: str | List[str] | None = None
+    rate: str | list[str] | None = None
     """ The scanning speed. May be a list of values. """
     duration: Qty | None = None
     """ The total duration of the scan. """
     mode: str | None = None
     """ The scanning mode. """
-    miscellaneous: str | Qty | List | Dict | None = None
+    miscellaneous: str | Qty | list | dict | None = None
     """ Miscellaneous, user-defined information. """
 
     parent_physical_type: str | None = field(default=None, repr=False)
@@ -289,7 +289,7 @@ class ScanInfo(Info):
                         miscellaneous, self.parent_physical_type, context)
 
     @classmethod
-    def from_parsed_filename(cls, parsed_object: Dict | List, parent_physical_type=None, parent_context=None):
+    def from_parsed_filename(cls, parsed_object: dict | list, parent_physical_type=None, parent_context=None):
 
         if isinstance(parsed_object, list):
             keys = inspect.getfullargspec(cls).args[2:]  # omit self and _attr_physical_type_dict
@@ -370,7 +370,7 @@ class SourceInfo(Info):
     """ In case of frequency conversion, the order of the conversion. """
     medium: str = 'Air'
     """ The medium of the source. Only affects the input if wavelength is provided. """
-    miscellaneous: str | Qty | List | Dict | None = None
+    miscellaneous: str | Qty | list | dict | None = None
     """ Any miscellaneous information about the source. """
 
     _attr_physical_type_dict = {
@@ -466,7 +466,7 @@ class SourceInfo(Info):
 
         if isinstance(parsed_object, dict):
             if all([isinstance(v, dict) for v in parsed_object.values()]):
-                return_dict: Dict[str, SourceInfo] = {str_to_valid_varname(k): cls.from_parsed_filename(v)
+                return_dict: dict[str, SourceInfo] = {str_to_valid_varname(k): cls.from_parsed_filename(v)
                                                       for k, v in parsed_object.items()}
                 for key, value in return_dict.items():
                     if value.name is None:
@@ -507,9 +507,9 @@ class OpticsInfo(Info):
     """ The angle of the polarizer. Can be string like 'H' or 'V'."""
     pinhole: Qty | str = None
     """ The diameter of the pinhole. Can be string like 'In' or 'Out'"""
-    filters: str | List = None
+    filters: str | list = None
     """ The filters used on the optical path. Can be string like 'F1' or ['F1', 'F2'] """
-    miscellaneous: str | Qty | List | Dict = None
+    miscellaneous: str | Qty | list | dict = None
     """ Any miscellaneous information about the optical path. """
 
     _attr_physical_type_dict = {
@@ -610,9 +610,9 @@ class FilenameInfo(Info):
     """ The file number of the file. """
     sample_name: str | None = None
     """ The sample name relevant to the data. """
-    lasers: SourceInfo | Dict[str, SourceInfo] | None = None
+    lasers: SourceInfo | dict[str, SourceInfo] | None = None
     """ The lasers used for the data acquisition. """
-    rf_sources: SourceInfo | Dict[str, SourceInfo] | None = None
+    rf_sources: SourceInfo | dict[str, SourceInfo] | None = None
     """ The RF sources used for the data acquisition. """
     magnetic_field: Qty | ScanInfo | None = None
     """ The magnetic field used for the data acquisition. """
@@ -628,11 +628,11 @@ class FilenameInfo(Info):
     """ The RF lines used for the data acquisition. """
     measurement_type: str | None = None
     """ The measurement type of the data acquisition."""
-    miscellaneous: str | Qty | List | Dict | None = None
+    miscellaneous: str | Qty | list | dict | None = None
     """ Any miscellaneous information about the data acquisition. """
     spot: Qty | ScanInfo | None = None
     """ The sample location at which the data was acquired. """
-    other: str | Qty | List | Dict | None = None
+    other: str | Qty | list | dict | None = None
     """ Any other information about the data acquisition. """
 
     _info_based_parameters = {

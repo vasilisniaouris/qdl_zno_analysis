@@ -1,6 +1,6 @@
 """
-This module includes the basis classes for reading, storing and processing data and metadata from different files and
-experiments.
+This module includes the base classes for reading, storing and processing data and metadata from different files and
+experiments. Metadata include metadata saved in the files, as well as extra information passed on the filenames.
 """
 import warnings
 from dataclasses import dataclass
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 import numpy as np
-import pint_xarray
+import pint_xarray  # needed for unit management in xarrays, even if IDE says it's not used.
 import xarray as xr
 
 from qdl_zno_analysis import Qty
@@ -16,9 +16,9 @@ from qdl_zno_analysis._extra_dependencies import plt, sl, xmltodict, read_sif
 from qdl_zno_analysis.filename_utils.filename_info import FilenameInfo
 from qdl_zno_analysis.filename_utils.filename_manager import FilenameManager
 from qdl_zno_analysis.physics import WFE
-from qdl_zno_analysis.typevars import AnyString, EnhancedNumeric, PLTArtist
-from qdl_zno_analysis.utils import to_qty_force_units, str_to_valid_varname, \
-    normalize_dict, varname_to_title_string, integrate_xarray, get_normalized_xarray, quick_plot_xarray, to_qty
+from qdl_zno_analysis.typevars import AnyString, EnhancedNumeric, PLTArtist, MultiAnyString
+from qdl_zno_analysis.utils import to_qty_force_units, normalize_dict, varname_to_title_string, \
+    integrate_xarray, get_normalized_xarray, quick_plot_xarray, to_qty
 
 
 class Data:
@@ -26,44 +26,46 @@ class Data:
     A base class to read, store and process data and metadata from a file. Meant to be subclassed.
     """
 
-    _allowed_file_extensions: list[str] = ['qdlf']
+    _ALLOWED_FILE_EXTENSIONS: list[str] = ['qdlf']
     """ A list of the expected file extensions. """
-    _qdlf_datatype: str = None
-    """ A predetermined string for separating different types of data for in-lab file type QDLF. """
+    _QDLF_DATATYPE: str = None
+    """ A predetermined string for distinguishing different types of data for in-lab file type QDLF. """
 
-    _data_dim_names: list[str] = ['file_index']
+    _DATA_DIM_NAMES: list[str] = ['file_index']
     """ The names of the dataset dimensions used to initialize
     the xarray dataset holding all the file and processed data. """
-    _data_coords: dict[str, tuple[str, ...]] = None
+    _DATA_COORDS: dict[str, tuple[str, ...]] = None
     """ The names of the dataset coordinates and the dimension they 
-    are associated with in a form a tuple that are used to initialize 
+    are associated with, in the form of a tuple that are used to initialize 
     the xarray dataset holding all the file and processed data. """
-    _data_variables: dict[str, tuple[str, ...]] = None
+    _DATA_VARIABLES: dict[str, tuple[str, ...]] = None
     """ The names of the dataset variables and the dimension they are 
-    associated with in a form of a tuple that are used to initialize 
+    associated with, in the form of a tuple that are used to initialize 
     the xarray dataset holding all the file and processed data. """
 
-    _metadata_dim_names: list[str] = ['file_index']
+    _METADATA_DIM_NAMES: list[str] = ['file_index']
     """ The names of the dataset dimensions used to initialize
     the xarray dataset holding all the user, file and processed metadata. """
-    _metadata_coords: dict[str, tuple[str, ...]] = None
+    _METADATA_COORDS: dict[str, tuple[str, ...]] = None
     """ The names of the dataset coordinates and the dimension they 
-    are associated with in a form a tuple that are used to initialize 
+    are associated with, in the form a tuple that are used to initialize 
     the xarray dataset holding all the user, file and processed metadata. """
-    _metadata_variables: dict[str, tuple[str, ...]] = None
+    _METADATA_VARIABLES: dict[str, tuple[str, ...]] = None
     """ The names of the dataset variables and the dimension they are 
-    associated with in a form of a tuple that are used to initialize 
+    associated with, in the form of a tuple that are used to initialize 
     the xarray dataset holding all the user, file and processed metadata. """
 
-    def __init__(self, filename_input: AnyString | FilenameManager):
+    def __init__(self, filename_input: AnyString | MultiAnyString | FilenameManager):
         """
-        Initialize a Data object with a filename and metadata.
+        Initialize a Data object with a filename(s) or a `FilenameManager` object.
 
         Parameters
         ----------
-        filename_input: str or Path or FilenameManager
-            The name of the file to read, or the filename manager containing the filename of interest.
+        filename_input: str | Path | List[str] | List[Path] | FilenameManager
+            The name(s) of the file(s) to read, or the filename manager containing the filename(s) of interest.
+            This class will use the `FilenameManager` instance internally, regardless of input.
         """
+        #
         if isinstance(filename_input, FilenameManager):
             self.filename_manager = filename_input
         else:
@@ -73,37 +75,64 @@ class Data:
 
         # --- initialize data and metadata ---
 
-        # get file_index array
+        # Get file_index array.
         file_index = np.array(range(len(self.filename_manager.valid_paths)))
-        # make empty xarray Dataset with predetermined dimensions.
-        self._data: xr.Dataset = xr.Dataset(coords={dim: [] for dim in self._data_dim_names})
-        # Set file index coord. will be dropped in post-initialization if there is only one file.
+        # Make empty xarray Dataset with predetermined dimensions.
+        self._data: xr.Dataset = xr.Dataset(coords={dim: [] for dim in self._DATA_DIM_NAMES})
+        # Set file index coord. Will be dropped in post-initialization if there is only one file.
         self._data['file_index'] = file_index
 
         # Here, the metadata are initialized only from user-provided information.
         # We will add file-dependent information to the metadata object in the _read_file(s) methods,
         # and then update and run all necessary metadata-related routines in the __post_init__() method.
-        self._metadata: xr.Dataset = xr.Dataset(coords={dim: [] for dim in self._metadata_dim_names})
+        self._metadata: xr.Dataset = xr.Dataset(coords={dim: [] for dim in self._METADATA_DIM_NAMES})
         self._metadata['file_index'] = file_index
+
+        self._insert_filename_info_to_datasets()
 
         self._read_files()
         self.__post_init__()
 
     def __post_init__(self):
+        """ Perform post-initialization tasks for metadata and data. """
         self._metadata_post_init()
         self._data_post_init()
 
     def _check_filename_manager_input(self):
+        """ Make sure that the `filename_manager` contains valid paths,
+        and that the contained filetypes are allowed. """
+
+        # check paths
         if not self.filename_manager.valid_paths:
             raise FileNotFoundError(f"No such file(s) or directory(/ies): {self.filename_manager.valid_paths}")
 
+        # check filetypes
         wrong_filetypes = []
         for filetype in self.filename_manager.available_filetypes:
-            if filetype not in self._allowed_file_extensions:
+            if filetype not in self._ALLOWED_FILE_EXTENSIONS:
                 wrong_filetypes.append(wrong_filetypes)
         if len(wrong_filetypes) > 0:
             raise ValueError(f"Filetypes {wrong_filetypes} not in the allowed list of "
-                             f"filetypes: {self._allowed_file_extensions}")  # TODO: Change error
+                             f"filetypes: {self._ALLOWED_FILE_EXTENSIONS}")  # TODO: Change error
+
+    def _insert_filename_info_to_datasets(self):
+        for key, value in self.filename_manager.non_changing_filename_info_dict.items():
+            if np.ndim(value) == 0:
+                self._metadata[key] = (), value
+            elif isinstance(value, Qty):
+                self._metadata[key] = (), Qty(set(value.m), value.u)
+            else:
+                self._metadata[key] = (), np.array(set(value))
+
+        for key, value in self.filename_manager.changing_filename_info_dict.items():
+            if isinstance(value[0], Qty):
+                value = Qty.from_list(value)
+            if np.ndim(value) == 1:
+                self._metadata[key] = ('file_index',), value
+                self._data[key] = ('file_index',), value
+            else:
+                self._metadata[key] = ('file_index',), set(value)  # TODO: fix, will not work.
+                self._data[key] = ('file_index',), set(value)  # TODO: fix, will not work.
 
     def _read_files(self):
         """ A method to read data from multiple files. calls on `_read_file` multiple times and appends data to a parent
@@ -115,7 +144,7 @@ class Data:
         """
         A method to read data from the file. Must be overloaded in subclass.
 
-        First initialize the data coordinates, and then the variables that depend on them.
+        First initialize the data dimensions, and then the variables that depend on them.
         """
         warnings.warn('Define your own get_data() function')
         ...
@@ -349,6 +378,7 @@ class Data:
         result = quick_plot_xarray(self.data, var, coord1, coord2, var_units,
                                    coord1_units, coord2_units, plot_method, **plot_kwargs)
 
+        # TODO: update following!
         # Use file number or filename as a legend label if it is not provided by the user.
         if not isinstance(result, Sequence):
             result_parse = [result]
@@ -366,25 +396,25 @@ class Data:
 
 class DataSpectrum(Data):
     """
-    A class for handling spectral data.
+    A class for handling spectral data files, such as sif and spe.
     """
-    _allowed_file_extensions: list[str] = Data._allowed_file_extensions + ['sif', 'spe']
+    _ALLOWED_FILE_EXTENSIONS: list[str] = Data._ALLOWED_FILE_EXTENSIONS + ['sif', 'spe']
     """ List of allowed file extensions for spectral data. """
 
-    _qdlf_datatype: str = "spectrum"
+    _QDLF_DATATYPE: str = "spectrum"
     """ QDLF datatype for spectral data. """
 
-    _data_dim_names: list[str] = Data._data_dim_names + ['frame', 'pixel']
+    _DATA_DIM_NAMES: list[str] = Data._DATA_DIM_NAMES + ['frame', 'pixel']
 
-    _data_coords: dict[str, tuple[str, ...]] = {
-        'time': ('frame',),
+    _DATA_COORDS: dict[str, tuple[str, ...]] = {
+        'time': ('file_index', 'frame'),
         'wavelength_air': ('pixel',),
         'wavelength_vacuum': ('pixel',),
         'frequency': ('pixel',),
         'energy': ('pixel',),
     }
 
-    _data_variables: dict[str, tuple[str, ...]] = {
+    _DATA_VARIABLES: dict[str, tuple[str, ...]] = {
         'counts': ('file_index', 'frame', 'pixel'),
         'counts_per_cycle': ('file_index', 'frame', 'pixel'),
         'counts_per_time': ('file_index', 'frame', 'pixel'),
@@ -395,9 +425,9 @@ class DataSpectrum(Data):
         'nobg_counts_per_time_per_power': ('file_index', 'frame', 'pixel'),
     }
 
-    _metadata_dim_names: list[str] = Data._metadata_dim_names + ['pixel']
-    _metadata_coords: dict[str, tuple[str, ...]] = {}
-    _metadata_variables: dict[str, tuple[str, ...]] = {
+    _METADATA_DIM_NAMES: list[str] = Data._METADATA_DIM_NAMES + ['pixel']
+    _METADATA_COORDS: dict[str, tuple[str, ...]] = {}
+    _METADATA_VARIABLES: dict[str, tuple[str, ...]] = {
         'diffraction_order': (),
         'calibration_data': (),
 
@@ -438,7 +468,34 @@ class DataSpectrum(Data):
             background_per_cycle: EnhancedNumeric | np.ndarray | list = np.nan,
             diffraction_order: int = 1,
     ):
-        # make a small user input dataclass from this.
+        """
+        Initializes a DataSpectrum object.
+
+        Parameters
+        ----------
+        filename_input: str | Path | List[str] | List[Path] | FilenameManager
+            The name(s) of the file(s) to read, or the filename manager containing the filename(s) of interest.
+            This class will use the `FilenameManager` instance internally, regardless of input.
+        wfe_offset: int | float | Qty
+            The wavelength/frequency/energy (WFE) offset of the spectrum. Default is Qty(0, 'nm').
+        pixel_offset: int
+            The pixel offset of the spectrum. Default is 0.
+        background_per_cycle: int | float | Qty | np.ndarray | list
+            The background counts per cycle. Default is Qty(0, 'counts'). The dimensions of the background can be up to
+            (file_index, pixel). Deepest axis will be assumed to be pixels, and the other axis will be file_index.
+            Frames can not have different backgrounds. Defaults to 300 counts for sif files and 0 counts for spe files.
+        diffraction_order: int
+            The expected diffraction order of the observed spectrum. This will not change the refractive index that is
+            used to calculate the calibrated WFE values. Default is 1.
+
+        Raises
+        ------
+        TypeError
+            If the background_per_cycle argument is not a Quantity, numpy array, list, or xarray.DataArray.
+        ValueError
+            If the background_per_cycle argument is not the correct shape.
+
+        """
         self._user_info = self.__UserInfo(
             to_qty(wfe_offset, 'length'),
             pixel_offset,
@@ -452,10 +509,6 @@ class DataSpectrum(Data):
         """ Reads the spectral data file. """
 
         file_path = self.filename_manager.valid_paths[file_index]
-        # if self.metadata.background_per_cycle is None:  # sets default background if None is given by user
-        #     self.metadata.background_per_cycle = \
-        #         self._default_background_per_cycle[file_path.suffix[1:]]
-
         if file_path.suffix == '.sif':
             self._read_sif_file(file_index)
         elif file_path.suffix == '.spe':
@@ -480,7 +533,7 @@ class DataSpectrum(Data):
 
             # initialize empty data array
             self._data['counts'] = xr.DataArray(coords=self._data.coords)
-            self._data['counts'] = self.data['counts'].pint.quantify('count')
+            self._data['counts'] = self.data['counts'].pint.quantify('count')  # add units to empty array
 
             # set pixel coordinate in metadata
             self._metadata['pixel'] = self.data['pixel'].data
@@ -496,8 +549,9 @@ class DataSpectrum(Data):
             self._metadata['cycles'] = xr.DataArray(
                 dims=['file_index'], coords={'file_index': self.metadata['file_index']})
         else:
-            if self._data['frame'] != np.array(range(frame_no)):
-                raise ValueError('...')  # TODO: change error
+            if len(self._data['frame'].data) < frame_no:
+                # TODO: Add warning that size is changing
+                self._data = self.data.reindex(y=np.array(range(frame_no)), fill_value=np.nan)
 
         # get primary data
         self._data['counts'][file_index] = Qty(counts_info.reshape((frame_no, pixel_no)), 'count')
@@ -516,7 +570,7 @@ class DataSpectrum(Data):
         spe_info: sl.SpeFile = sl.load_from_files([str(file_path)])
 
         # get normalized footer
-        with open(self.filename) as f:
+        with open(str(file_path)) as f:
             footer_pos = sl.read_at(f, 678, 8, np.uint64)[0]
             f.seek(footer_pos)
             xml_text = f.read()
@@ -538,18 +592,25 @@ class DataSpectrum(Data):
 
             # initialize empty data array
             self._data['counts'] = xr.DataArray(coords=self._data.coords)
-            self.data['counts'] = self.data['counts'].pint.quantify('count')
+            self.data['counts'] = self.data['counts'].pint.quantify('count')  # add units to empty array
+
+            # set pixel coordinate in metadata
+            self._metadata['pixel'] = self.data['pixel'].data
 
             # get calibration values -> We assume they are the same over all files!!
-            self.metadata.calibrated_values = Qty(spe_info.wavelength, 'nm')
+            self._metadata['calibrated_values'] = ('pixel',), Qty(spe_info.wavelength, 'nm')
 
-            # set pixel-related metadata variables
-            self.metadata.pixel_no = pixel_no
-            self.metadata.pixels = self.data['pixel'].data
+            # initialize empty exposure time and cycle metadata variables
+            self._metadata['exposure_time'] = xr.DataArray(
+                dims=['file_index'], coords={'file_index': self.metadata['file_index']})
+            self._metadata['exposure_time'] = self.metadata['exposure_time'].pint.quantify('s')
 
+            self._metadata['cycles'] = xr.DataArray(
+                dims=['file_index'], coords={'file_index': self.metadata['file_index']})
         else:
-            if self._data['frame'] != np.array(range(frame_no)):
-                raise ValueError('...')  # TODO: change error
+            if len(self._data['frame'].data) < frame_no:
+                # TODO: Add warning that size is changing
+                self._data = self.data.reindex(y=np.array(range(frame_no)), fill_value=np.nan)
 
         # get primary data
         self._data['counts'][file_index] = Qty(counts_info.reshape((frame_no, pixel_no)), 'count')
@@ -557,19 +618,19 @@ class DataSpectrum(Data):
         # get exposure time. This can vary between different files.
         exposure_text = 'exposuretime._text'
         value = float(norm_footer_dict[find_partial_key(exposure_text)[0]])
-        self.metadata.exposure_time = np.append(self.metadata.exposure_time, Qty(value, 'ms').to('s'))
+        self._metadata['exposure_time'][file_index] = Qty(value, 'ms').to('s')
 
         # get cycle-counts. This can vary between different files.
         cycles_text = 'cyclecount._text'
         value = int(norm_footer_dict[find_partial_key(cycles_text)[0]])
-        self.metadata.cycles = np.append(self.metadata.cycles, value)
+        self.metadata['cycles'][file_index] = value
 
     def _set_all_metadata_coords(self):
         """ Sets all the coordinate-related metadata for the spectral data. """
         pass
 
     def _set_all_metadata_variables(self):
-        """ Sets all the "y-axis" metadata for the spectral data. """
+        """ Sets all the metadata variables (dependent on dims) for the spectral data. """
 
         if np.all(self.metadata['exposure_time'] == self.metadata['exposure_time'][0]):
             self._metadata['exposure_time'] = (), self.metadata['exposure_time'].data[0]
@@ -595,7 +656,7 @@ class DataSpectrum(Data):
                 else:
                     bgpc = self._default_background_per_cycle['sif']
 
-            coord_names = self._find_metadata_coord_names(bgpc)
+            coord_names = self._find_corresponding_dataset_dims(bgpc)
             self._metadata['background_per_cycle'] = coord_names, bgpc
 
         self._metadata['background'] = \
@@ -603,20 +664,20 @@ class DataSpectrum(Data):
         self._metadata['background_per_time'] = \
             self._metadata['background_per_cycle'] / self.metadata['exposure_time']
 
-        # TODO: Add this to Data, before reading files!!
-        for key, value in self.filename_manager.non_changing_filename_info_dict.items():
-            if np.ndim(value) == 0:
-                self._metadata[key] = (), value
-            elif isinstance(value, Qty):
-                self._metadata[key] = (), Qty(set(value.m), value.u)
-            else:
-                self._metadata[key] = (), np.array(set(value))
-
-        for key, value in self.filename_manager.changing_filename_info_dict.items():
-            if np.ndim(value) == 1:
-                self._metadata[key] = ('file_index',), value
-            else:
-                self._metadata[key] = ('file_index',), set(value)  # TODO: fix, will not work.
+        # # TODO: Add this to Data, before reading files!!
+        # for key, value in self.filename_manager.non_changing_filename_info_dict.items():
+        #     if np.ndim(value) == 0:
+        #         self._metadata[key] = (), value
+        #     elif isinstance(value, Qty):
+        #         self._metadata[key] = (), Qty(set(value.m), value.u)
+        #     else:
+        #         self._metadata[key] = (), np.array(set(value))
+        #
+        # for key, value in self.filename_manager.changing_filename_info_dict.items():
+        #     if np.ndim(value) == 1:
+        #         self._metadata[key] = ('file_index',), value
+        #     else:
+        #         self._metadata[key] = ('file_index',), set(value)  # TODO: fix, will not work.
 
         excitation_power_dict = self._get_excitation_power_dict()
         for laser_power_name, laser_power in excitation_power_dict.items():
@@ -633,16 +694,19 @@ class DataSpectrum(Data):
         """ Sets all the coordinate-related data for the spectral data. """
 
         self._data = self._data.assign_coords({
-            'time': self._data['frame'] * self.metadata.exposure_time
+            'time': self._data['frame'] * self.metadata['exposure_time']
         })
 
         # pixel-related coordinates
         # get calibrated WFE
         calibrated_values = self._metadata['calibrated_values'].data.copy()
-        diff_ord = self._metadata['diffraction_order']
-        if diff_ord != 1:
-            calibrated_values *= 1 / diff_ord if calibrated_values.check('[length]') else diff_ord
-        wfe = WFE(calibrated_values)  # assumes air as medium
+        diff_ord = self._metadata['diffraction_order'].data
+
+        # TODO: check math. May need to apply diff_ord in each element, not collectively prior to WFE.
+        #  May need to just update WFE itself to handle this.
+        # if diff_ord != 1:
+        #     calibrated_values *= 1 / diff_ord if calibrated_values.check('[length]') else diff_ord
+        wfe = WFE(calibrated_values, diffraction_order=diff_ord)  # assumes air as medium
 
         self._data = self._data.assign_coords({
             'energy': (('pixel',), wfe.energy),
@@ -652,7 +716,7 @@ class DataSpectrum(Data):
         })
 
     def _set_all_data_variables(self):
-        """ Sets all the "y-axis" data for the spectral data. """
+        """ Sets all the data variables (dependent on dims) for the spectral data. """
         self._data['counts_per_cycle'] = self.data['counts'] / self.metadata['cycles']
         self._data['counts_per_time'] = self.data['counts_per_cycle'] / self.metadata['exposure_time']
 
@@ -716,8 +780,9 @@ class DataSpectrum(Data):
 
         return result + self._metadata['wfe_offset'].data
 
-    def _find_metadata_coord_names(self, xdata_array) -> tuple[str, ...]:
-        data_shape = np.shape(xdata_array)
+    def _find_corresponding_dataset_dims(self, data: EnhancedNumeric | list | np.ndarray) -> tuple[str, ...]:
+        """ Returns the corresponding dataset dimensions of an array with unmarked dimensions. """
+        data_shape = np.shape(data)
         file_no = len(self.data['file_index'])
         pixel_no = len(self.data['pixel'])
 

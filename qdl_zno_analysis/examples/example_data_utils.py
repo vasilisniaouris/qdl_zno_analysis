@@ -2,17 +2,16 @@ import warnings
 from dataclasses import dataclass
 from typing import ClassVar
 
-try:  # example data dependencies
-    import requests
-    from gdown.download import _get_session, download
-    from gdown.download_folder import _parse_google_drive_file, download_folder
-except ModuleNotFoundError:
-    pass
-
 from pathlib import Path
 
+from qdl_zno_analysis._extra_dependencies import HAS_EXAMPLE_DATA_DEP, requests
 from qdl_zno_analysis.errors import NotFoundError
 
+if HAS_EXAMPLE_DATA_DEP:
+    from gdown.download import _get_session, download
+    from gdown.download_folder import _parse_google_drive_file, download_folder
+else:
+    pass
 
 GOOGLE_DRIVE_URL = "https://drive.google.com/drive/folders/1yPZ5BKT5_7zENuy6-cKib_W9ze5gPXNA?usp=share_link"
 """ The URL of the Google Drive folder with example data. """

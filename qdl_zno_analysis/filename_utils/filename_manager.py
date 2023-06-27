@@ -3,7 +3,7 @@ The filename_manager module provides utilities for managing filenames and their 
 It provides methods to easily find the filenames of a given type by using the associated file number.
 """
 
-from typing import List, Iterable, Dict, Iterator
+from typing import Iterable, Iterator
 
 import numpy as np
 from pathlib import Path
@@ -36,7 +36,7 @@ def get_filename_info(filename: AnyString) -> FilenameInfo:
     return FilenameInfo.from_filename(filename)
 
 
-def get_filename_info_norm_dict(filename: AnyString) -> Dict:
+def get_filename_info_norm_dict(filename: AnyString) -> dict:
     """
     Get normalized dictionary from FilenameInfo object parsed from filename string.
 
@@ -47,7 +47,7 @@ def get_filename_info_norm_dict(filename: AnyString) -> Dict:
 
     Returns
     -------
-    Dict
+    dict
         Normalized dictionary with parsed information from filename string.
 
     Examples
@@ -58,20 +58,20 @@ def get_filename_info_norm_dict(filename: AnyString) -> Dict:
     return FilenameInfo.from_filename(filename).to_normalized_dict()
 
 
-def get_changing_filename_values_dict(filenames: List[AnyString], reverse_result=False) -> Dict:
+def get_changing_filename_values_dict(filenames: list[AnyString], reverse_result=False) -> dict:
     """
     Get dictionary with changing values in file names.
 
     Parameters
     ----------
-    filenames : List[string | Path]
+    filenames : list[string | Path]
         List of filename strings.
     reverse_result : bool, optional
         Returns unchanged values if True. Defaults to false.
 
     Returns
     -------
-    Dict
+    dict
         Dictionary with (non)-repeating filename values.
 
     Examples
@@ -91,7 +91,7 @@ def get_changing_filename_values_dict(filenames: List[AnyString], reverse_result
     return find_changing_values_in_list_of_dict(info_list, reverse_result)
 
 
-def get_path_list(string: MultiAnyString) -> List[Path]:
+def get_path_list(string: MultiAnyString) -> list[Path]:
     """
     Get list of Path objects from list or string of file paths.
 
@@ -102,7 +102,7 @@ def get_path_list(string: MultiAnyString) -> List[Path]:
 
     Returns
     -------
-    List[Path]
+    list[Path]
         List of Path objects parsed from the given string.
 
     Examples
@@ -179,14 +179,14 @@ class FilenameManager:
         """
         Parameters
         ----------
-        filenames : str | Path | List[str | Path]
+        filenames : str | Path | list[str | Path]
             List or string of file names.
         folder : str | Path, optional
             Folder path, by default Path('.').
         check_validity : bool, optional
             Check the validity of the folder and file names, by default False.
         """
-        self.filenames: List[Path] = get_path_list(filenames)
+        self.filenames: list[Path] = get_path_list(filenames)
         self.folder: Path = Path(folder)
         self.check_validity = check_validity
 
@@ -211,7 +211,7 @@ class FilenameManager:
         self.valid_paths = self._get_valid_paths()
         self.filename_info_list = self._get_filename_info_list()
 
-    def _get_valid_paths(self) -> List[Path]:
+    def _get_valid_paths(self) -> list[Path]:
         """ Get list of valid file paths. """
 
         full_filenames = [self.folder.joinpath(filename) for filename in self.filenames]
@@ -219,43 +219,43 @@ class FilenameManager:
         return full_filenames if not self.check_validity else [full_filename for full_filename in full_filenames
                                                                if full_filename.exists()]
 
-    def _get_filename_info_list(self) -> List[FilenameInfo]:
+    def _get_filename_info_list(self) -> list[FilenameInfo]:
         """ Get list of `FilenameInfo` objects. """
         return [get_filename_info(valid_path) for valid_path in self.valid_paths]
 
     @property
-    def filename_info_dicts(self) -> List[Dict]:
+    def filename_info_dicts(self) -> list[dict]:
         """ Get list of dictionaries with parsed information from filenames. """
         return [filename_info.to_dict() for filename_info in self.filename_info_list]
 
     @property
-    def filename_info_norm_dicts(self) -> List[Dict]:
+    def filename_info_norm_dicts(self) -> list[dict]:
         """ Get list of dictionaries with normalized parsed information from filenames. """
         return [filename_info.to_normalized_dict() for filename_info in self.filename_info_list]
 
     @property
-    def changing_filename_info_dict(self) -> Dict:
+    def changing_filename_info_dict(self) -> dict:
         """ Get dictionary with changing values in file names. """
         return find_changing_values_in_list_of_dict(self.filename_info_norm_dicts)
 
     @property
-    def non_changing_filename_info_dict(self) -> Dict:
+    def non_changing_filename_info_dict(self) -> dict:
         """ Get dictionary with non-changing values in file names. """
         return find_changing_values_in_list_of_dict(self.filename_info_norm_dicts, True)
 
     @property
-    def available_filetypes(self) -> List[str]:
+    def available_filetypes(self) -> list[str]:
         """ Get list of available file types. """
         return list(np.unique([filename.suffix.replace('.', '') for filename in self.filenames]))
 
     @property
-    def filenames_by_filetype(self) -> Dict[str, List[Path]]:
+    def filenames_by_filetype(self) -> dict[str, list[Path]]:
         """ Get dictionary with filenames grouped by file type. """
         return {filetype: [filename for filename in self.filenames if filename.suffix.replace('.', '') == filetype]
                 for filetype in self.available_filetypes}
 
     @property
-    def available_file_numbers(self) -> List[int]:
+    def available_file_numbers(self) -> list[int]:
         """ Get list of available file numbers. """
         return_list = list(np.unique([filename_info.fno for filename_info in self.filename_info_list]))
         return_list.sort()
@@ -287,7 +287,7 @@ class FilenameManager:
 
     @classmethod
     def from_file_numbers(cls, file_numbers: range | tuple | Iterable | int | float,
-                          filetypes: str | List = None, folder=Path('.')):
+                          filetypes: str | list = None, folder=Path('.')):
         """
         Generates the list of filenames based on the file numbers and file types that exist in the given folder.
 
@@ -298,7 +298,7 @@ class FilenameManager:
             It can be specified as a range, iterable, tuple or single integer/float value. If a tuple is provided,
             it will be used to generate a range.
             Remember that range starts from 0 and does not include the last digit.
-        filetypes : str | List[str], optional
+        filetypes : str | list[str], optional
             The file types to load. It can be specified as a single string or a list of strings. Defaults to None.
         folder : str | Path
             The folder where the files are stored. Defaults to Path('.')

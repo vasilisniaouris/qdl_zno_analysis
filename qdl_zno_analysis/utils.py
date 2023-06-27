@@ -8,7 +8,7 @@ import typing
 from dataclasses import dataclass, fields
 from inspect import getfullargspec
 from operator import attrgetter
-from typing import List, Dict, Type, Iterable, Union
+from typing import Type
 
 import numpy as np
 import pint
@@ -18,19 +18,13 @@ import xarray as xr
 from xarray.core.types import ExtendOptions
 from xarray.plot import dataarray_plot
 from xarray.plot.utils import _determine_cmap_params, _add_colorbar
-
-try:  # visualization dependencies
-    import matplotlib.pyplot as plt
-    import matplotlib as mpl
-except ModuleNotFoundError:
-    pass
-
 from pint_xarray.conversion import extract_units, strip_units, attach_units
 
+from qdl_zno_analysis._extra_dependencies import mpl, plt, HAS_VISUALIZATION_DEP
 from qdl_zno_analysis import ureg, Qty
 from qdl_zno_analysis.constants import default_units
 from qdl_zno_analysis.errors import MethodInputError
-from qdl_zno_analysis.typevars import EnhancedNumeric, XRObject
+from qdl_zno_analysis.typevars import EnhancedNumeric, XRObject, PLTArtist
 
 
 def is_unit_valid(unit_str: str) -> bool:
@@ -173,7 +167,7 @@ def to_qty_force_units(value: EnhancedNumeric | np.ndarray[int | float] | list[i
         ureg.enable_contexts(context, **context_kwargs)
 
     units: str = default_units[physical_type]['main']
-    if isinstance(value, int | float | List | np.ndarray):
+    if isinstance(value, int | float | list | np.ndarray):
         rv = Qty(value, units)
     elif isinstance(value, xr.DataArray):
         rv = value.pint.to(units)
@@ -283,7 +277,7 @@ def str_to_valid_varname(string: str, ignore: str = '') -> str:
     return re.sub(r'[^\w' + ignore + r']+|^(?=\d)', '_', string).lower()
 
 
-def normalize_dict(dictionary: dict, parent_key='', separator='.') -> Dict:
+def normalize_dict(dictionary: dict, parent_key='', separator='.') -> dict:
     """
     Normalize a dictionary by converting its keys to valid Python variable names and flattening it.
     Each key in the flattened dictionary is a result of addition of all keys that resulted in it from the
@@ -303,7 +297,7 @@ def normalize_dict(dictionary: dict, parent_key='', separator='.') -> Dict:
 
     Returns
     -------
-    Dict
+    dict
         The normalized dictionary.
 
     Examples
@@ -328,20 +322,20 @@ def normalize_dict(dictionary: dict, parent_key='', separator='.') -> Dict:
     return normalized_dict
 
 
-def find_changing_values_in_list_of_dict(list_of_dicts: List[Dict], reverse_result=False) -> Dict:
+def find_changing_values_in_list_of_dict(list_of_dicts: list[dict], reverse_result=False) -> dict:
     """
     Find the keys in a list of dictionaries whose values change between the dictionaries.
 
     Parameters
     ----------
-    list_of_dicts: List[Dict]
+    list_of_dicts: list[dict]
         The list of dictionaries to analyze.
     reverse_result: bool, optional
         If True, returns only unchanged values. Defaults to False.
 
     Returns
     -------
-    Dict
+    dict
         A dictionary containing the keys whose values change (or not change), and their corresponding value(s).
 
     Examples
@@ -589,10 +583,28 @@ class Dataclass:
         return str(self)
 
 
-def convert_coord_to_dim(coord: xr.DataArray, coord_data_to_convert=None):
+def convert_coord_to_dim(coord: xr.DataArray, coord_data_to_convert: np.ndarray | Qty = None):
+    """
+    Convert 1D xr.DataArray Coordinates to their corresponding xr.DataArray dimension.
+    The conversion is performed using a cubic interpolation.
+
+    Parameters
+    ----------
+    coord: xr.DataArray
+        The coordinate data array.
+    coord_data_to_convert: np.ndarray | Qty
+        The coordinate data to be converted. If None, the xr.DataArray data will be used.
+
+    Returns
+    -------
+    xr.DataArray
+        The xr.DataArray dimensions corresponding to the input coordinate.
+
+    """
     coord_units = extract_units(coord)
     coord_stripped = strip_units(coord)
 
+    # TODO: Make n-dimensional possible
     dim_name = coord.dims[0]
     dim = coord[dim_name]
     dim_stripped = strip_units(dim)
@@ -835,256 +847,298 @@ def get_quick_plot_labels(
     return label_dict
 
 
-def quick_plot_xarray(
-        xarray_data: xr.Dataset,
-        var: str | None = None,
-        coord1: str | None = None,
-        coord2: str | None = None,
-        var_units: str | None = None,
-        coord1_units: str | None = None,
-        coord2_units: str | None = None,
-        plot_method: str | None = None,
+if HAS_VISUALIZATION_DEP:
+    def quick_plot_xarray(
+            xarray_data: xr.Dataset | xr.DataArray,
+            var: str | None = None,
+            coord1: str | None = None,
+            coord2: str | None = None,
+            var_units: str | None = None,
+            coord1_units: str | None = None,
+            coord2_units: str | None = None,
+            plot_method: str | None = None,
+            **plot_kwargs
+    ) -> PLTArtist:
+        """
+        Create a quick plot of an xarray data array/set.
+
+        Parameters
+        ----------
+        xarray_data : xr.Dataset | xr.DataArray
+            Either a dataset with a variable name `var` or a data array.
+        var : str | None, optional
+            In the case of a dataset given in `xarray_data`, it is the name of the data variable to use
+            as the y-axis for 2D data and z-axis for 3D data. If None, the first variable in the dataset is used.
+            If the xarray_data is a DataArray, `var` is ignored.
+        coord1 : str | None, optional
+            Name of the coordinate to use as the x-axis.
+        coord2 : str | None, optional
+            Name of the coordinate to use as the y-axis (only for 3D data).
+        var_units : str | None, optional
+            The units to change the plotted variable to.
+        coord1_units : str | None, optional
+            The units to change the x-axis to.
+        coord2_units : str | None, optional
+            The units to change the y-axis to (only for 3D data).
+        plot_method : str | None, optional
+            The specific plotting method to use. See `xarray.DataArray.plot` for options.
+            If None, the default method for the input variable will be used.
         **plot_kwargs
-) -> Type[plt.Artist]:
-    """
-    Create a quick plot of an xarray data array/set.
+            Additional keyword arguments to pass to the matplotlib.pyplot.plot function.
 
-    Parameters
-    ----------
-    xarray_data : xr.Dataset
-        The dataset to plot.
-    var : str | None, optional
-        Name of the data variable to use as the y-axis for 2D data and z-axis for 3D data.
-        If None, the first variable in the dataset is used.
-    coord1 : str | None, optional
-        Name of the coordinate to use as the x-axis.
-    coord2 : str | None, optional
-        Name of the coordinate to use as the y-axis (only for 3D data).
-    var_units : str | None, optional
-        The units to change the plotted variable to.
-    coord1_units : str | None, optional
-        The units to change the x-axis to.
-    coord2_units : str | None, optional
-        The units to change the y-axis to (only for 3D data).
-    plot_method : str | None, optional
-        The specific plotting method to use. See `xarray.DataArray.plot` for options.
-        If None, the default method for the input variable will be used.
-    **plot_kwargs
-        Additional keyword arguments to pass to the matplotlib.pyplot.plot function.
+        Returns
+        -------
+        plt.Artist
+            The object returned by the `xarray.DataArray.plot` method.
 
-    Returns
-    -------
-    plt.Artist
-        The object returned by the `xarray.DataArray.plot` method.
+        Raises
+        ------
+        ValueError
+            If the specified column names are not present in the data.
 
-    Raises
-    ------
-    ValueError
-        If the specified column names are not present in the data.
+        """
 
-    """
+        # Check data input validity
+        if not isinstance(xarray_data, xr.DataArray | xr.Dataset):
+            raise TypeError('...')  # TODO: Change error message
 
-    # Check input validity
-    if var is None:  # Set norm_var to the first variable if not provided
-        var = list(xarray_data.data_vars.keys())[0]
-    if var not in xarray_data.variables:
-        raise MethodInputError('var', var, list(xarray_data.variables.keys()), 'quick_plot')
-    if coord1 is not None and coord1 not in xarray_data.coords:
-        raise MethodInputError('coord1', coord1, list(xarray_data.coords.keys()), 'quick_plot')
-    if coord2 is not None and coord1 not in xarray_data.coords:
-        raise MethodInputError('coord2', coord2, list(xarray_data.coords.keys()), 'quick_plot')
+        if isinstance(xarray_data, xr.Dataset):
+            if var is None:  # Set var to the first variable if not provided
+                var = list(xarray_data.data_vars.keys())[0]
+            if var not in xarray_data.variables:
+                raise MethodInputError('var', var, list(xarray_data.variables.keys()), 'quick_plot')
+            xarray_data = xarray_data[var]
 
-    # Define the data
-    data = xarray_data[var].copy(deep=True)
+        # Define the data
+        data = xarray_data.copy(deep=True)
 
-    # Check the user input method is correct
-    if plot_method is not None:
-        available_plot_methods = \
-            [method for method in dir(data.plot) if not method.startswith('_')] + \
-            ['linecollection']
-        if plot_method not in available_plot_methods:
-            raise MethodInputError('plot_method', plot_method, available_plot_methods, 'quick_plot')
+        # Check coordinate input validity
+        if coord1 is not None and coord1 not in xarray_data.coords:
+            raise MethodInputError('coord1', coord1, list(xarray_data.coords.keys()), 'quick_plot')
+        if coord2 is not None and coord1 not in xarray_data.coords:
+            raise MethodInputError('coord2', coord2, list(xarray_data.coords.keys()), 'quick_plot')
 
-    # Change units if necessary
-    if var_units is not None:
-        data = data.pint.to({var: var_units})
-    if coord1 is not None and coord1_units is not None:
-        data = data.pint.to({coord1: coord1_units})
-    if coord2 is not None and coord2_units is not None:
-        data = data.pint.to({coord2: coord2_units})
+        # Get amount of data dimensions
+        ndims = len(data.dims)
 
-    # making my own method (-ish)
-    set_colors = False
-    if plot_method == 'linecollection':
-        plot_method = 'line'
-        set_colors = True
-        plot_kwargs.setdefault('add_legend', False)
-        hue = plot_kwargs.get('hue', None)
-        if hue is None:
-            if coord1 is None:
-                coord1 = data.dims[-1]
-                hue = data.dims[-2]
-            else:
-                other_dims = list(data.dims)
-                other_dims.remove(data[coord1].dims[0])
-                hue = other_dims[-1]
-            plot_kwargs.update({'hue': hue})
+        # Check the user input method is correct, or set default methods
+        if plot_method is not None:
+            available_plot_methods = [method for method in dir(data.plot) if not method.startswith('_')]
+            if ndims == 2:
+                available_plot_methods += ['linecollection']
 
-    # Get plot function with either the default method, or the user's preferred method
-    plot = getattr(data.plot, plot_method) if plot_method is not None else data.plot
+            if plot_method not in available_plot_methods:
+                raise MethodInputError('plot_method', plot_method, available_plot_methods, 'quick_plot')
+        else:
+            # set default plot_method
+            if ndims == 1:
+                plot_method = 'line'
+            elif ndims == 2:
+                plot_method = 'pcolormesh'
 
-    # set some default plot keyword arguments
-    plot_kwargs.setdefault('center', False)
-    plot_kwargs.setdefault('cmap', 'Spectral')
+        # set default coords
+        dim_names = [None] + list(data.dims)
+        if coord1 is None and coord2 is None:
+            coord1 = dim_names[-1]
+            coord2 = dim_names[-2]
+        elif coord1 is not None:
+            other_dim_names = dim_names.copy()
+            other_dim_names.remove(coord1)
+            coord2 = dim_names[-1]
+        elif coord2 is not None:
+            other_dim_names = dim_names.copy()
+            other_dim_names.remove(coord2)
+            coord1 = dim_names[-1]
 
-    # Use only accepted plot that are allowed from the plot method. Ignore others.
-    plot_args = getfullargspec(getattr(dataarray_plot, plot_method)).kwonlyargs
-    updated_plot_kwargs = {a: plot_kwargs[a] for a in plot_kwargs if a in plot_args}
+        # Make own method (-ish)
+        set_colors = False
+        if plot_method == 'linecollection':
+            plot_method = 'line'
+            set_colors = True
+            plot_kwargs.setdefault('add_legend', False)
 
-    # Plot data!
-    result = plot(x=coord1, y=coord2, **updated_plot_kwargs)
+        # Change units if necessary
+        if var_units is not None:
+            data = data.pint.to({var: var_units})
+        if coord1 is not None and coord1_units is not None:
+            data = data.pint.to({coord1: coord1_units})
+        if coord2 is not None and coord2_units is not None:
+            data = data.pint.to({coord2: coord2_units})
 
-    ax: plt.Axes = result[0].axes if isinstance(result, typing.Sequence) else result.axes
-
-    if set_colors:
-        cmap_args = getfullargspec(set_linecollection_cmap).args
-        cmap_args += getfullargspec(set_linecollection_cmap).kwonlyargs
-        cmap_kwargs = {a: plot_kwargs[a] for a in plot_kwargs if a in cmap_args}
-        cbar = set_linecollection_cmap(xarray_data=data, ax=ax, lines=result, **cmap_kwargs)
-    else:
-        cbar = None
-
-    # Set axis labels if necessary
-    if plot_kwargs.get('add_labels', True):
-        quick_plot_labels = get_quick_plot_labels(xarray_data)
-
-        x_axis = re.sub(r' \[[^)]*]', '', ax.get_xlabel())
-        y_axis = re.sub(r' \[[^)]*]', '', ax.get_ylabel())
-
-        x_label = quick_plot_labels[x_axis]
-        y_label = quick_plot_labels[y_axis]
-
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(y_label)
-
-        cbar = getattr(result, 'colorbar', cbar)
-        if cbar is not None:
-            cbar_ax: plt.Axes = cbar.ax
-            z_axis = re.sub(r' \[[^)]*]', '', cbar_ax.get_ylabel())
-
-            z_label = quick_plot_labels[z_axis]
-            cbar_ax.set_ylabel(z_label)
-
-    return result
+        # Get plot function with either the default method, or the user's preferred method
+        plot = getattr(data.plot, plot_method) if plot_method is not None else data.plot
 
 
-def set_linecollection_cmap(
-    xarray_data: xr.Dataset | xr.DataArray,
-    hue: str,
-    lines: list[plt.Line2D],
-    ax: plt.Axes,
-    cmap: str | mpl.colors.Colormap | None = None,
-    vmin: float | None = None,
-    vmax: float | None = None,
-    norm: mpl.colors.Normalize = None,
-    extend: ExtendOptions = 'neither',
-    levels: typing.Sequence = None,
-    center: float | bool = False,
-    robust: bool = False,
-    colors: str | None = None,
-    add_colorbar=True,
-    cbar_ax: plt.Axes = None,
-    cbar_kwargs: dict[str, typing.Any] | None = None,
-):
-    """
-    Parameters
-    ----------
-    cmap : matplotlib colormap name or colormap, optional
-        The mapping from data values to color space. Either a
-        Matplotlib colormap name or object. If not provided, this will
-        be either ``'viridis'`` (if the function infers a sequential
-        dataset) or ``'RdBu_r'`` (if the function infers a diverging
-        dataset).
-        See :doc:`Choosing Colormaps in Matplotlib <matplotlib:tutorials/colors/colormaps>`
-        for more information.
+        # set plot coordinate keys for x, y, and hue
+        plot_kwargs['x'] = coord1
+        if plot_method == 'line':
+            plot_kwargs['hue'] = coord2
+        else:
+            plot_kwargs['y'] = coord2
 
-        If *seaborn* is installed, ``cmap`` may also be a
-        `seaborn color palette <https://seaborn.pydata.org/tutorial/color_palettes.html>`_.
-        Note: if ``cmap`` is a seaborn color palette,
-        ``levels`` must also be specified.
-    vmin : float or None, optional
-        Lower value to anchor the colormap, otherwise it is inferred from the
-        data and other keyword arguments. When a diverging dataset is inferred,
-        setting `vmin` or `vmax` will fix the other by symmetry around
-        ``center``. Setting both values prevents use of a diverging colormap.
-        If discrete levels are provided as an explicit list, both of these
-        values are ignored.
-    vmax : float or None, optional
-        Upper value to anchor the colormap, otherwise it is inferred from the
-        data and other keyword arguments. When a diverging dataset is inferred,
-        setting `vmin` or `vmax` will fix the other by symmetry around
-        ``center``. Setting both values prevents use of a diverging colormap.
-        If discrete levels are provided as an explicit list, both of these
-        values are ignored.
-    norm : matplotlib.colors.Normalize, optional
-        If ``norm`` has ``vmin`` or ``vmax`` specified, the corresponding
-        kwarg must be ``None``.
-    extend : {'neither', 'both', 'min', 'max'}, optional
-        How to draw arrows extending the colorbar beyond its limits. If not
-        provided, ``extend`` is inferred from ``vmin``, ``vmax`` and the data limits.
-    levels : int or array-like, optional
-        Split the colormap (``cmap``) into discrete color intervals. If an integer
-        is provided, "nice" levels are chosen based on the data range: this can
-        imply that the final number of levels is not exactly the expected one.
-        Setting ``vmin`` and/or ``vmax`` with ``levels=N`` is equivalent to
-        setting ``levels=np.linspace(vmin, vmax, N)``.
-    center : float, optional
-        The value at which to center the colormap. Passing this value implies
-        use of a diverging colormap. Setting it to ``False`` prevents use of a
-        diverging colormap.
-    robust : bool, optional
-        If ``True`` and ``vmin`` or ``vmax`` are absent, the colormap range is
-        computed with 2nd and 98th percentiles instead of the extreme values.
-    colors : str or array-like of color-like, optional
-        A single color or a sequence of colors. If the plot type is not ``'contour'``
-        or ``'contourf'``, the ``levels`` argument is required.
-    cbar_ax : matplotlib axes object, optional
-        Axes in which to draw the colorbar.
-    cbar_kwargs : dict, optional
-        Dictionary of keyword arguments to pass to the colorbar
-        (see :meth:`matplotlib:matplotlib.figure.Figure.colorbar`).
-    """
+        # Set some default kwargs if applicable
+        plot_args = getfullargspec(getattr(dataarray_plot, plot_method)).kwonlyargs
+        default_kwargs = {'center': False, 'cmap': 'Spectral'}
+        for key, value in default_kwargs.items():
+            if key in plot_args:
+                plot_kwargs.setdefault(key, value)
 
-    if cmap and colors:
-        raise ValueError("Can't specify both cmap and colors.")
+        # Plot data!
+        result = plot(**plot_kwargs)
 
-    cbar_kwargs = {} if cbar_kwargs is None else dict(cbar_kwargs)
+        ax: plt.Axes = result[0].axes if isinstance(result, typing.Sequence) else result.axes
 
-    plot_data = xarray_data[hue].data
-    cmap_params = _determine_cmap_params(
-        plot_data=plot_data,
-        vmin=vmin,
-        vmax=vmax,
-        cmap=cmap,
-        center=center,
-        robust=robust,
-        extend=extend,
-        levels=levels,
-        norm=norm,
-    )
+        if set_colors:
+            # set some default plot keyword arguments specific to 'linecollection' plot_method
+            plot_kwargs.setdefault('center', False)
+            plot_kwargs.setdefault('cmap', 'Spectral')
 
-    cm = mpl.cm.ScalarMappable(norm=cmap_params['norm'], cmap=cmap_params['cmap'])
-    colors = cm.to_rgba(plot_data)
-    for color, line in zip(colors, lines):
-        line.set_color(color)
+            cmap_args = getfullargspec(set_linecollection_cmap).args
+            cmap_args += getfullargspec(set_linecollection_cmap).kwonlyargs
+            cmap_kwargs = {a: plot_kwargs[a] for a in plot_kwargs if a in cmap_args}
+            cbar = set_linecollection_cmap(xarray_data=data, ax=ax, lines=result, **cmap_kwargs)
+        else:
+            cbar = None
 
-    if ax.get_legend() is not None:
-        ax.get_legend().remove()
-        ax.legend(list(plot_data), title=get_quick_plot_labels(xarray_data)[hue])
+        # Set axis labels if necessary
+        if plot_kwargs.get('add_labels', True):
+            quick_plot_labels = get_quick_plot_labels(xarray_data)
 
-    if add_colorbar:
-        cbar: mpl.colorbar.Colorbar = _add_colorbar(cm, ax, cbar_ax, cbar_kwargs, cmap_params)
-        cbar.ax.set_ylabel(hue)
-        return cbar
+            x_axis = re.sub(r' \[[^)]*]', '', ax.get_xlabel())
+            y_axis = re.sub(r' \[[^)]*]', '', ax.get_ylabel())
 
-    return None
+            x_label = quick_plot_labels[x_axis]
+            y_label = quick_plot_labels[y_axis]
+
+            ax.set_xlabel(x_label)
+            ax.set_ylabel(y_label)
+
+            cbar = getattr(result, 'colorbar', cbar)
+            if cbar is not None:
+                cbar_ax: plt.Axes = cbar.ax
+                z_axis = re.sub(r' \[[^)]*]', '', cbar_ax.get_ylabel())
+
+                z_label = quick_plot_labels[z_axis]
+                cbar_ax.set_ylabel(z_label)
+
+        return result
+
+
+    def set_linecollection_cmap(
+        xarray_data: xr.Dataset | xr.DataArray,
+        hue: str,
+        lines: list[plt.Line2D],
+        ax: plt.Axes,
+        cmap: str | mpl.colors.Colormap | None = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
+        norm: mpl.colors.Normalize = None,
+        extend: ExtendOptions = 'neither',
+        levels: typing.Sequence = None,
+        center: float | bool = False,
+        robust: bool = False,
+        colors: str | None = None,
+        add_colorbar: bool = True,
+        cbar_ax: plt.Axes = None,
+        cbar_kwargs: dict[str, typing.Any] | None = None,
+    ):
+        """
+        Parameters
+        ----------
+        xarray_data
+        hue
+        lines: list[plt.Line2D]
+            A list of Line2D objects.
+        ax: plt.Axes
+            The axes of the line plot
+        cmap : matplotlib colormap name or colormap, optional
+            The mapping from data values to color space. Either a
+            Matplotlib colormap name or object. If not provided, this will
+            be either ``'viridis'`` (if the function infers a sequential
+            dataset) or ``'RdBu_r'`` (if the function infers a diverging
+            dataset).
+            See :doc:`Choosing Colormaps in Matplotlib <matplotlib:tutorials/colors/colormaps>`
+            for more information.
+
+            If *seaborn* is installed, ``cmap`` may also be a
+            `seaborn color palette <https://seaborn.pydata.org/tutorial/color_palettes.html>`_.
+            Note: if ``cmap`` is a seaborn color palette,
+            ``levels`` must also be specified.
+        vmin : float or None, optional
+            Lower value to anchor the colormap, otherwise it is inferred from the
+            data and other keyword arguments. When a diverging dataset is inferred,
+            setting `vmin` or `vmax` will fix the other by symmetry around
+            ``center``. Setting both values prevents use of a diverging colormap.
+            If discrete levels are provided as an explicit list, both of these
+            values are ignored.
+        vmax : float or None, optional
+            Upper value to anchor the colormap, otherwise it is inferred from the
+            data and other keyword arguments. When a diverging dataset is inferred,
+            setting `vmin` or `vmax` will fix the other by symmetry around
+            ``center``. Setting both values prevents use of a diverging colormap.
+            If discrete levels are provided as an explicit list, both of these
+            values are ignored.
+        norm : matplotlib.colors.Normalize, optional
+            If ``norm`` has ``vmin`` or ``vmax`` specified, the corresponding
+            kwarg must be ``None``.
+        extend : {'neither', 'both', 'min', 'max'}, optional
+            How to draw arrows extending the colorbar beyond its limits. If not
+            provided, ``extend`` is inferred from ``vmin``, ``vmax`` and the data limits.
+        levels : int or array-like, optional
+            Split the colormap (``cmap``) into discrete color intervals. If an integer
+            is provided, "nice" levels are chosen based on the data range: this can
+            imply that the final number of levels is not exactly the expected one.
+            Setting ``vmin`` and/or ``vmax`` with ``levels=N`` is equivalent to
+            setting ``levels=np.linspace(vmin, vmax, N)``.
+        center : float, optional
+            The value at which to center the colormap. Passing this value implies
+            use of a diverging colormap. Setting it to ``False`` prevents use of a
+            diverging colormap.
+        robust : bool, optional
+            If ``True`` and ``vmin`` or ``vmax`` are absent, the colormap range is
+            computed with 2nd and 98th percentiles instead of the extreme values.
+        colors : str or array-like of color-like, optional
+            A single color or a sequence of colors. If the plot type is not ``'contour'``
+            or ``'contourf'``, the ``levels`` argument is required.
+        add_colorbar: bool
+            If ``True``, the colorbar will appear in the figure.
+        cbar_ax : matplotlib axes object, optional
+            Axes in which to draw the colorbar.
+        cbar_kwargs : dict, optional
+            Dictionary of keyword arguments to pass to the colorbar
+            (see :meth:`matplotlib:matplotlib.figure.Figure.colorbar`).
+        """
+
+        if cmap and colors:
+            raise ValueError("Can't specify both cmap and colors.")
+
+        cbar_kwargs = {} if cbar_kwargs is None else dict(cbar_kwargs)
+
+        plot_data = xarray_data[hue].data
+        cmap_params = _determine_cmap_params(
+            plot_data=plot_data,
+            vmin=vmin,
+            vmax=vmax,
+            cmap=cmap,
+            center=center,
+            robust=robust,
+            extend=extend,
+            levels=levels,
+            norm=norm,
+        )
+
+        cm = mpl.cm.ScalarMappable(norm=cmap_params['norm'], cmap=cmap_params['cmap'])
+        colors = cm.to_rgba(plot_data)
+        for color, line in zip(colors, lines):
+            line.set_color(color)
+
+        if ax.get_legend() is not None:
+            ax.get_legend().remove()
+            ax.legend(list(plot_data), title=get_quick_plot_labels(xarray_data)[hue])
+
+        if add_colorbar:
+            cbar: mpl.colorbar.Colorbar = _add_colorbar(cm, ax, cbar_ax, cbar_kwargs, cmap_params)
+            cbar.ax.set_ylabel(hue)
+            return cbar
+
+        return None

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from qdl_zno_analysis import Qty, ureg
-from qdl_zno_analysis.constants import _refractive_index_databases, get_refractive_index, default_units
+from qdl_zno_analysis.constants import _refractive_index_databases, get_refractive_index
 from qdl_zno_analysis.errors import MethodInputError
 from qdl_zno_analysis.typevars import EnhancedNumeric
 from qdl_zno_analysis.utils import to_qty_force_units, to_qty, Dataclass
@@ -48,6 +48,8 @@ class WFE(Dataclass):
     """ Input medium, by default 'air'. """
     medium: str = 'air'
     """ Stored medium, by default 'air'. """
+    diffraction_order: int = 1
+    """ Diffraction order, by default 1. Affects output wfe, but not refractive index. """
 
     wavelength_medium: Qty = field(init=False)
     """ Wavelength in medium specified in input parameters. """
@@ -69,10 +71,14 @@ class WFE(Dataclass):
         self.refractive_index = get_refractive_index(self.wfe, self.medium, self.input_medium)
         input_ref_index = get_refractive_index(self.wfe, self.input_medium, self.input_medium)
 
-        self.frequency = to_qty_force_units(self.wfe, 'frequency', 'sp', n=input_ref_index)
-        self.energy = to_qty_force_units(self.frequency, 'energy', 'sp')
-        self.wavelength_vacuum = to_qty_force_units(self.frequency, 'length', 'sp')
-        self.wavelength_medium = to_qty_force_units(self.frequency, 'length', 'sp', n=self.refractive_index)
+        self.frequency = \
+            to_qty_force_units(self.wfe, 'frequency', 'sp', n=input_ref_index) * self.diffraction_order
+        self.energy = \
+            to_qty_force_units(self.frequency, 'energy', 'sp') * self.diffraction_order
+        self.wavelength_vacuum = \
+            to_qty_force_units(self.frequency, 'length', 'sp') / self.diffraction_order
+        self.wavelength_medium = \
+            to_qty_force_units(self.frequency, 'length', 'sp', n=self.refractive_index) / self.diffraction_order
 
     def _check_input(self):
         """ Check if the input values are valid. """

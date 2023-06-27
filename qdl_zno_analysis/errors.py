@@ -4,7 +4,6 @@ This module contains the base exception classes for the package.
 
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import List, Dict
 
 
 @dataclass(frozen=False)
@@ -69,7 +68,7 @@ class InvalidDerivedUnitStringError(ValueError, QZError):
 
     unit_str: str
     primary_physical_type: str
-    default_units: Dict[str, Dict[str, str]]
+    default_units: dict[str, dict[str, str]]
 
     def __str__(self):
         core_unit = self.default_units[self.primary_physical_type]['core']
@@ -101,7 +100,7 @@ class IncompatibleUnitWarning(UserWarning):
     unit_str: str
     primary_physical_type: str
     context: str
-    default_units: Dict[str, Dict[str, str]]
+    default_units: dict[str, dict[str, str]]
 
     def __str__(self):
         context_message = ''
@@ -131,8 +130,8 @@ class InvalidFileNumbersError(TypeError, QZError):
 class InfoSubclassArgumentNumberError(ValueError, QZError):
     """ Raised when the subclass argument number is larger than the Info subclass available attributes. """
 
-    parsed_object: List
-    attrs: List[str]
+    parsed_object: list
+    attrs: list[str]
 
     def __str__(self):
         return f"More arguments in parsed object: {self.parsed_object} than attributes in Info subclass {self.attrs}."

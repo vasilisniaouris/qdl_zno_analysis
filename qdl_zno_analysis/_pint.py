@@ -1,4 +1,7 @@
-
+"""
+Module containing pint-related definitions. It is an internal module and should not be called by the user.
+Use the main __init__ definition of ureg and Qty instead.
+"""
 from pint_xarray import unit_registry as _ureg
 
 
