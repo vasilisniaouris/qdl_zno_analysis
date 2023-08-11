@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qdl_zno_analysis"
-version = "0.2.2"
+version = "0.3.1"
 authors = [
     {name = "Vasilis Niaouris", email = "vasilisniaouris@gmail.com"},
 ]
@@ -29,8 +29,9 @@ dependencies = [
     "numpy>=1.24.2",
     "pandas",
     "pint>=0.21",
-    "pint-pandas @ git+https://github.com/hgrecco/pint-pandas.git",
+    "pint_xarray",
     "scipy",
+    "xarray",
 ]
 # dynamic = ["version"]
 
@@ -45,12 +46,13 @@ visualization = [
 ]
 spectroscopy = [
     "sif_parser",
-    "spe2py",
+    "spe_loader",
     "xmltodict",
 ]
 example_data = [
-    "requests",
     "gdown",
+    "jupyter",
+    "requests",
 ]
 
 #examples = ["notebook"]

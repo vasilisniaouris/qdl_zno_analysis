@@ -19,8 +19,8 @@ from pathlib import Path
 
 from qdl_zno_analysis import ureg, Qty
 from qdl_zno_analysis.constants import ureg_unit_prefixes, default_units
-from qdl_zno_analysis.errors import MethodInputError, InvalidUnitStringError, InvalidDerivedUnitStringError, \
-    UnsupportedUnitError, IncompatibleUnitWarning
+from qdl_zno_analysis.errors import InvalidUnitStringError, InvalidDerivedUnitStringError, \
+    IncompatibleUnitError, IncompatibleUnitWarning, assert_options, ValueOutOfOptionsError
 from qdl_zno_analysis.typevars import AnyString
 from qdl_zno_analysis.utils import is_unit_valid
 
@@ -82,7 +82,7 @@ def _get_filename_subset_string_format_regex(separator, sep_below_str=None) -> t
     ----------
     separator : str
         The separator character that is used subset_str string. If not in the list of valid
-        separators `_secondary_filename_separators`, a MethodInputError will be raised.
+        separators `_secondary_filename_separators`, a ValueOutofOptionsError will be raised.
     sep_below_str : str, optional
         A string representing all the separators that come after `separator` in the list of valid
         separators. If not provided, the function will determine `sep_below_str` from `separator` and
@@ -95,6 +95,11 @@ def _get_filename_subset_string_format_regex(separator, sep_below_str=None) -> t
         a subset_str string, and the second pattern tests if a string contains one or more valid subset_str
         strings.
 
+    Raises
+    ------
+    ValueOutOfOptionsError
+        If separator not in the list of valud separators.
+
     Examples
     --------
     >>> _get_filename_subset_string_format_regex('-')
@@ -104,12 +109,10 @@ def _get_filename_subset_string_format_regex(separator, sep_below_str=None) -> t
 
     separators = _secondary_filename_separators
     if sep_below_str is None:
-        if separator not in separators:
-            raise MethodInputError('separator', separator, separators, '_get_filename_subset_string_format_regex')
-        else:
-            sep_idx = separators.index(separator)
-            separators_below = separators[sep_idx + 1:]
-            sep_below_str = ''.join(separators_below)
+        assert_options(separator, separators, 'separator', ValueOutOfOptionsError)
+        sep_idx = separators.index(separator)
+        separators_below = separators[sep_idx + 1:]
+        sep_below_str = ''.join(separators_below)
 
     filename_subset_string_format_regex = f"([a-zA-Z0-9]+)~([a-zA-Z0-9~{sep_below_str}]+){separator}?"
     filename_subset_string_format_test_regex = f"^({filename_subset_string_format_regex})+$"
@@ -357,7 +360,7 @@ def get_unit_from_str(unit_str: str, primary_physical_type: str = None, context=
     IncompatibleUnitWarning
         If the string is a valid unit and is not compatible with the primary physical type, a warning
         is raised instead of an error.
-    UnsupportedUnitError
+    IncompatibleUnitError
         If the unit is not supported.
     """
     if primary_physical_type is None:
@@ -383,7 +386,7 @@ def get_unit_from_str(unit_str: str, primary_physical_type: str = None, context=
             warnings.warn(IncompatibleUnitWarning(unit_str, primary_physical_type, context, default_units))
         rv = unit
     else:
-        raise UnsupportedUnitError(unit_str, primary_physical_type, context)
+        raise IncompatibleUnitError(unit_str, primary_physical_type, context)
 
     ureg.disable_contexts()
     return rv

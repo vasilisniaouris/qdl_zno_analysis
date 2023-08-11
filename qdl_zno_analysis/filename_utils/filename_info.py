@@ -6,6 +6,7 @@ with the `FilenameManager` class.
 """
 
 import inspect
+import warnings
 from dataclasses import dataclass, field
 from typing import Tuple, ClassVar
 
@@ -101,7 +102,20 @@ class Info(Dataclass):
                         converted_dict[attr] = _value_str_to_attr_physical_type(
                             attr, value, attr_physical_type_dict)
 
+        # Ignore unidentified inputs
+        valid_class_args = inspect.getfullargspec(cls).args
+        attrs_to_pop = []
+        for attr in converted_dict:
+            if attr not in valid_class_args:
+                # TODO: change message
+                attrs_to_pop.append(attr)
+                warnings.warn(f"{attr} is not a valid (sub)header for {cls.__name__}, and has been removed. "
+                              f"Filename information may have not been properly imported")
+        for attr in attrs_to_pop:
+            converted_dict.pop(attr)
+
         return cls(**converted_dict)
+
 
 @dataclass(repr=False)
 class ScanInfo(Info):
@@ -118,12 +132,12 @@ class ScanInfo(Info):
     - 'StepNo': `step_no`
     - 'Rate': `rate`
     - 'Duration' or 'Dur': `duration`
-    - 'Mode': `mode`
+    - 'Mode': `data_aggregation_method`
     - 'Msc': `miscellaneous`
     """
-    start: Qty | None = None
+    start: Qty | None = np.nan * ureg.dimensionless
     """ The starting point of the scan. May be a list of values. """
-    stop: Qty | None = None
+    stop: Qty | None = np.nan * ureg.dimensionless
     """ The ending point of the scan.  May be a list of values. """
     step: Qty | None = None
     """ The step size of the scan. May be a list of values, same size as start and stop. """
@@ -137,7 +151,7 @@ class ScanInfo(Info):
     duration: Qty | None = None
     """ The total duration of the scan. """
     mode: str | None = None
-    """ The scanning mode. """
+    """ The scanning data_aggregation_method. """
     miscellaneous: str | Qty | list | dict | None = None
     """ Miscellaneous, user-defined information. """
 
@@ -161,7 +175,7 @@ class ScanInfo(Info):
         'Rate': 'rate',
         'Duration': 'duration',
         'Dur': 'duration',
-        'Mode': 'mode',
+        'Mode': 'data_aggregation_method',
         'Msc': 'miscellaneous',
     }
 

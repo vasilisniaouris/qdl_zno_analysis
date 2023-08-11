@@ -1,13 +1,13 @@
 # Description 
 The quantum defect laboratory (QDL) ZnO Data Analysis Toolkit is a python package created to aid and streamline 
-the analysis spectral and temporal data collected on ZnO substrates (and other materials we research).
+the analysis of spectral and temporal data collected on ZnO substrates (and other materials we research).
 
 **Links**:
 - [Documentation (GitHub Pages)](https://vasilisniaouris.github.io/qdl_zno_analysis/)
 - [GitHub Repository](https://github.com/vasilisniaouris/qdl_zno_analysis)
 
 # Installation
-There's two ways to install the core package through GitHub.
+There are two ways to install the core package through GitHub.
 
 1. To directly install it from GitHub, you can use the following command:
    ~~~shell
@@ -52,20 +52,21 @@ The QDL ZnO Data Analysis Toolkit has the following core dependencies:
 ~~~text
 "numpy>=1.24.2"
 "pandas"
-"pint~0.20.1"
-"pint-pandas"
+"pint>=0.21"
+"pint_xarray"
 "scipy"
+"xarray"
 ~~~
 
 For extra functionality, you may want to install additional dependencies, with the command  
 `pip install ...[header]`
 
-| Header          | Dependencies                          |
-|-----------------|---------------------------------------|
-| `all`           | everything listed below               |
-| `visualization` | `"matplotlib>=3.7.1"`                 |
-| `spectroscopy`  | `"sif_parser", "spe2py", "xmltodict"` |
-| `example_data`  | `"requests", "gdown"`                 |
+| Header          | Dependencies                              |
+|-----------------|-------------------------------------------|
+| `all`           | everything listed below                   |
+| `visualization` | `"matplotlib>=3.7.1"`                     |
+| `spectroscopy`  | `"sif_parser", "spe_loader", "xmltodict"` |
+| `example_data`  | `"gdown", "jupyter", "requests"`          |
 
 To install all optional dependencies, use the header `all`: `pip install ...[all]`.
 

@@ -8,7 +8,7 @@ import numpy as np
 
 from qdl_zno_analysis import Qty, ureg
 from qdl_zno_analysis.constants import _refractive_index_databases, get_refractive_index
-from qdl_zno_analysis.errors import MethodInputError
+from qdl_zno_analysis.errors import assert_options, ValueOutOfOptionsError, assert_unit_on_value
 from qdl_zno_analysis.typevars import EnhancedNumeric
 from qdl_zno_analysis.utils import to_qty_force_units, to_qty, Dataclass
 
@@ -37,6 +37,14 @@ class WFE(Dataclass):
     WFE(medium='air', wavelength_medium=<Quantity(369.0, 'nanometer')>, wavelength_vacuum=<Quantity(369.105045, 'nanometer')>, frequency=<Quantity(812214.468, 'gigahertz')>, energy=<Quantity(3.35904914, 'electron_volt')>, refractive_index=1.0002846755358596)
     >>> WFE(369 * ureg.nm).to_dict()
     {'wfe': <Quantity(369, 'nanometer')>, 'input_medium': 'air', 'medium': 'air', 'wavelength_medium': <Quantity(369.0, 'nanometer')>, 'wavelength_vacuum': <Quantity(369.105045, 'nanometer')>, 'frequency': <Quantity(812214.468, 'gigahertz')>, 'energy': <Quantity(3.35904914, 'electron_volt')>, 'refractive_index': 1.0002846755358596}
+
+    Raises
+    ------
+    ValueOutOfOptionsError
+        When the medium related inputs are not included in the default options.
+    IncompatibleUnitError
+        When input wfe units are not compatible with the spectroscopy unit context (length, frequency, speed).
+
     """
 
     wfe: EnhancedNumeric | np.ndarray[int | float] | list[int | float] = field(repr=False)
@@ -71,24 +79,16 @@ class WFE(Dataclass):
         self.refractive_index = get_refractive_index(self.wfe, self.medium, self.input_medium)
         input_ref_index = get_refractive_index(self.wfe, self.input_medium, self.input_medium)
 
-        self.frequency = \
-            to_qty_force_units(self.wfe, 'frequency', 'sp', n=input_ref_index) * self.diffraction_order
-        self.energy = \
-            to_qty_force_units(self.frequency, 'energy', 'sp') * self.diffraction_order
-        self.wavelength_vacuum = \
-            to_qty_force_units(self.frequency, 'length', 'sp') / self.diffraction_order
-        self.wavelength_medium = \
-            to_qty_force_units(self.frequency, 'length', 'sp', n=self.refractive_index) / self.diffraction_order
+        self.frequency = to_qty_force_units(self.wfe, 'frequency', 'sp', n=input_ref_index) * self.diffraction_order
+        self.energy = to_qty_force_units(self.frequency, 'energy', 'sp')
+        self.wavelength_vacuum = to_qty_force_units(self.frequency, 'length', 'sp')
+        self.wavelength_medium = to_qty_force_units(self.frequency, 'length', 'sp', n=self.refractive_index)
 
     def _check_input(self):
         """ Check if the input values are valid. """
-        with ureg.context('sp'):
-            if not self.wfe.is_compatible_with('nm'):
-                raise ValueError('some message')  # TODO: change message
-        if self.input_medium not in self._allowed_mediums:
-            raise MethodInputError('input_medium', self.input_medium, self._allowed_mediums, 'WFE')
-        if self.medium not in self._allowed_mediums:
-            raise MethodInputError('medium', self.medium, self._allowed_mediums, 'WFE')
+        assert_unit_on_value(self.wfe, 'nm', 'spectroscopy')
+        assert_options(self.input_medium, self._allowed_mediums, 'input_medium', ValueOutOfOptionsError)
+        assert_options(self.medium, self._allowed_mediums, 'medium', ValueOutOfOptionsError)
 
     @property
     def freq(self):
@@ -133,7 +133,7 @@ def convert_spectroscopic_delta(delta=None, center_v=None, min_v=None, max_v=Non
         Output medium, by default 'vacuum' (only important if output is in length units).
     output_units : str, optional
         Output units, by default 'nm'.
-    returned_values : str, optional
+    returned_values : str, {'auto', 'all'}, optional
         Returned values, by default 'auto'. If 'auto' returns only the values that were provided as input. If 'all',
         returns all four values, delta, center, min and max.
 
@@ -147,9 +147,11 @@ def convert_spectroscopic_delta(delta=None, center_v=None, min_v=None, max_v=Non
     Raises
     ------
     ValueError
-        If returned_values is not allowed.
-    MethodInputError
+        - If returned_values is not allowed.
+        - If less than two inputs were provided.
+    ValueOutOfOptionsError
         If input_medium or output_medium is not allowed.
+        If return values neither 'all' or 'auto'.
 
     Notes
     -----
@@ -183,15 +185,12 @@ def convert_spectroscopic_delta(delta=None, center_v=None, min_v=None, max_v=Non
     min_v: Qty = to_qty(min_v, 'length')
     max_v: Qty = to_qty(max_v, 'length')
 
-    allowed_return_values = ['auto', 'all']
-    if returned_values.lower() not in allowed_return_values:
-        raise ValueError(f"returned_values must be one of {allowed_return_values}.")
+    allowed_return_values = {'auto', 'all'}
+    assert_options(returned_values.lower(), allowed_return_values, 'returned_values', ValueOutOfOptionsError)
 
     allowed_mediums = list(_refractive_index_databases.keys()) + ['vacuum']
-    if input_medium not in allowed_mediums:
-        raise MethodInputError('input_medium', input_medium, allowed_mediums, 'convert_spectroscopic_delta')
-    if output_medium not in allowed_mediums:
-        raise MethodInputError('input_medium', output_medium, allowed_mediums, 'convert_spectroscopic_delta')
+    assert_options(input_medium, allowed_mediums, 'input_medium', ValueOutOfOptionsError)
+    assert_options(output_medium, allowed_mediums, 'output_medium', ValueOutOfOptionsError)
 
     input_keys = []
     if delta is not None:
@@ -209,7 +208,7 @@ def convert_spectroscopic_delta(delta=None, center_v=None, min_v=None, max_v=Non
             center_v = max_v - delta / 2.
             min_v = max_v - delta
         else:
-            raise ValueError("Two off center_v, min_v, or max_v must be specified.")
+            raise ValueError("Two of center_v, min_v, or max_v must be specified.")
     elif center_v is not None:
         input_keys.append('center_v')
         if min_v is not None:
@@ -221,14 +220,14 @@ def convert_spectroscopic_delta(delta=None, center_v=None, min_v=None, max_v=Non
             delta = (max_v - center_v) * 2.
             min_v = max_v - delta
         else:
-            raise ValueError("Two off delta, center_v, min_v, or max_v must be specified.")
+            raise ValueError("Two of delta, center_v, min_v, or max_v must be specified.")
     elif min_v is not None and max_v is not None:
         input_keys.append('min_v')
         input_keys.append('max_v')
         center_v = (min_v + max_v) / 2.
         delta = (max_v - min_v) * 2.
     else:
-        raise ValueError("Two off delta, center_v, min_v, or max_v must be specified.")
+        raise ValueError("Two of delta, center_v, min_v, or max_v must be specified.")
 
     freq_min = to_qty_force_units(min_v, 'frequency', 'sp', **{'n': get_refractive_index(min_v, input_medium)})
     freq_center = to_qty_force_units(center_v, 'frequency', 'sp', **{'n': get_refractive_index(center_v, input_medium)})

@@ -283,7 +283,7 @@ class FilenameManager:
         folder = Path(folder)
         filenames = list(folder.glob(matching_string))
 
-        return cls(filenames, folder, True)
+        return cls(filenames, check_validity=True)
 
     @classmethod
     def from_file_numbers(cls, file_numbers: range | tuple | Iterable | int | float,

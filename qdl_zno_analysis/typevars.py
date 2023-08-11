@@ -5,6 +5,7 @@ Type aliases for different base-types, e.g. string, pathlib.Path, list of string
 from pathlib import Path
 from typing import TypeVar
 
+import numpy as np
 import xarray as xr
 
 from qdl_zno_analysis import Qty
@@ -25,6 +26,7 @@ EnhancedNumeric = TypeVar("EnhancedNumeric", int, float, Qty)
 
 XRObject = TypeVar("XRObject", xr.Dataset, xr.DataArray)
 
+ArrayObject = TypeVar("ArrayObject", np.ndarray, xr.DataArray)
 
 if HAS_VISUALIZATION_DEP:
     PLTArtist = TypeVar("PLTArtist", bound=plt.Artist)

@@ -8,7 +8,7 @@ from pandas import DataFrame
 from scipy.constants import physical_constants
 
 from qdl_zno_analysis import ureg, Qty
-from qdl_zno_analysis.errors import MethodInputError
+from qdl_zno_analysis.errors import assert_options, ValueOutOfOptionsError, assert_unit_on_value
 from qdl_zno_analysis.external_data import df_from_ext_data
 
 
@@ -104,8 +104,8 @@ def get_n_air(wfe_value: Qty | float | Iterable, input_medium='air') -> float | 
 
     Raises
     ------
-    MethodInputError
-        If medium is not in list of allowed mediums.
+    ValueOutOfOptionsError
+        If input medium is not in list of allowed media.
 
     Examples
     --------
@@ -144,8 +144,10 @@ def get_refractive_index(wfe_value: Qty | float | Iterable, output_medium='air',
 
     Raises
     ------
-    MethodInputError
-        If medium is not in list of allowed mediums.
+    ValueOutOfOptionsError
+        If input or output media are not in list of allowed media.
+    IncompatibleUnitError
+        If wfe_value not in units compatible with the spectroscopy content.
 
     Examples
     --------
@@ -162,15 +164,9 @@ def get_refractive_index(wfe_value: Qty | float | Iterable, output_medium='air',
 
     _allowed_mediums = list(_refractive_index_databases.keys()) + ['vacuum']
 
-    with ureg.context('sp'):
-        if not wfe_value.is_compatible_with('nm'):
-            raise ValueError('some message')  # TODO: change message
-
-    if output_medium not in _allowed_mediums:
-        raise MethodInputError('output_medium', output_medium, _allowed_mediums, 'get_refractive_index')
-
-    if input_medium not in _allowed_mediums:
-        raise MethodInputError('input_medium', input_medium, _allowed_mediums, 'get_refractive_index')
+    assert_unit_on_value(wfe_value, 'nm', 'spectroscopy')
+    assert_options(output_medium, _allowed_mediums, 'output_medium', ValueOutOfOptionsError)
+    assert_options(input_medium, _allowed_mediums, 'input_medium', ValueOutOfOptionsError)
 
     def _get_refractive_index(value: Qty | float | Iterable, medium: str, is_input_vac=True):
         if medium == 'vacuum':

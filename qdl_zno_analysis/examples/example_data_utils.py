@@ -288,7 +288,7 @@ def get_example_local_filepath(local_filename):
     >>> local_example_folder = get_example_local_filepath('spectra')
     >>> local_example_file = get_example_local_filepath('spectra/002_Smp~QD1_Lsr~Pwr~5u_Tmp~7_Msc~30sec.spe')
     """
-    file_path = Path(__file__).parent.joinpath('_data', local_filename)
+    file_path = Path(__file__).parent.joinpath(local_filename)
 
     if not file_path.exists():
         raise NotFoundError(file_path)
@@ -337,10 +337,9 @@ def download_example_data(path_in: str, path_out=None):
         The path(s) to the downloaded data.
     """
     if path_out is None:
-        path_out = Path(__file__).parent.joinpath('_data').joinpath(path_in)
+        path_out = Path(__file__).parent.joinpath(path_in)
 
-    url = "https://drive.google.com/drive/folders/1yPZ5BKT5_7zENuy6-cKib_W9ze5gPXNA?usp=share_link"
-    content = GoogleDriveContent.from_url(url)
+    content = GoogleDriveContent.from_url(GOOGLE_DRIVE_URL)
     return content.download(path_in, path_out, quiet=False)
 
 
@@ -360,7 +359,7 @@ def assure_example_data_exist(example_path: str):
          of the downloaded data paths.
     """
     example_path_content = get_example_data_content(example_path)
-    local_example_folder_path = Path(__file__).parent.joinpath('_data', example_path)
+    local_example_folder_path = Path(__file__).parent.joinpath(example_path)
     expected_filename_paths = [local_example_folder_path.joinpath(key)
                                for key in example_path_content.family_tree_path_dict]
 
